@@ -1,0 +1,595 @@
+import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
+import {
+  analyzeMessageFallback,
+  DEFAULT_CATALOG_PRODUCTS,
+  parseModelAnalysis,
+  type AnalysisProvider,
+  type CatalogProduct,
+} from "@/lib/remedy-analysis";
+
+export type LeadRow = Database["public"]["Tables"]["remedy_leads"]["Row"] & {
+  matched_product: CatalogProduct | null;
+};
+
+export interface ConnectorStatusSummary {
+  database: {
+    provider: "supabase-postgres" | "memory-fallback";
+    connected: boolean;
+    rlsScoped: boolean;
+  };
+  ai: {
+    provider: AnalysisProvider;
+    model: string;
+    liveInference: boolean;
+  };
+  whatsapp: {
+    mode: "cloud_api" | "wa_me_deeplink";
+    cloudApiConfigured: boolean;
+    webhookVerifyConfigured: boolean;
+  };
+}
+
+const fallbackLeadsByOwner = new Map<string, LeadRow[]>();
+let fallbackCatalogProducts: CatalogProduct[] = DEFAULT_CATALOG_PRODUCTS.map((item) => ({
+  ...item,
+}));
+
+export function getFallbackCatalog(): CatalogProduct[] {
+  return fallbackCatalogProducts;
+}
+
+export function getOwnerFallbackLeads(userId: string): LeadRow[] {
+  const existing = fallbackLeadsByOwner.get(userId);
+  if (existing) return existing;
+
+  const neelam = fallbackCatalogProducts[0] ?? null;
+  const rudraksha = fallbackCatalogProducts[4] ?? null;
+  const initial: LeadRow[] = [
+    {
+      id: "22222222-2222-4222-8222-222222222201",
+      customer_message: "Neelam ka rate kya hai 5 ratti?",
+      detected_language: "Hinglish",
+      intent: "PRICE_ENQUIRY",
+      matched_product_id: neelam?.id ?? null,
+      extracted_quantity: 5,
+      quoted_total: 14000,
+      suggested_reply:
+        "Namaste! Neelam / Blue Sapphire ka rate ₹2800 per ratti hai. 5 ratti ka total ₹14,000 hoga. Order confirm karne ke liye batayein.",
+      status: "NEW",
+      created_at: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+      created_by: userId,
+      matched_product: neelam,
+    },
+    {
+      id: "22222222-2222-4222-8222-222222222202",
+      customer_message: "Rudraksha 100 pcs chahiye bulk rate batao",
+      detected_language: "Hinglish",
+      intent: "BULK_ORDER",
+      matched_product_id: rudraksha?.id ?? null,
+      extracted_quantity: 100,
+      quoted_total: 8500,
+      suggested_reply:
+        "Namaste! Rudraksha / 5 Mukhi Rudraksha ka rate ₹85 per pcs hai. 100 pcs ka total ₹8,500 hoga. Order confirm karne ke liye batayein.",
+      status: "REPLIED",
+      created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+      created_by: userId,
+      matched_product: rudraksha,
+    },
+  ];
+  fallbackLeadsByOwner.set(userId, initial);
+  return initial;
+}
+
+export function getActiveAiConfig(): {
+  provider: AnalysisProvider;
+  model: string;
+  liveInference: boolean;
+} {
+  if (process.env["GEMINI_API_KEY"]) {
+    return {
+      provider: "gemini",
+      model: process.env["GEMINI_MODEL"] ?? "gemini-2.5-flash",
+      liveInference: true,
+    };
+  }
+  if (process.env["GROQ_API_KEY"]) {
+    return {
+      provider: "groq",
+      model: process.env["AI_MODEL"] ?? "llama-3.3-70b-versatile",
+      liveInference: true,
+    };
+  }
+  if (process.env["OPENAI_API_KEY"] ?? process.env["AI_API_KEY"]) {
+    return {
+      provider: "openai",
+      model: process.env["AI_MODEL"] ?? "gpt-4o-mini",
+      liveInference: true,
+    };
+  }
+  if (process.env["ANTHROPIC_API_KEY"]) {
+    return {
+      provider: "anthropic",
+      model: process.env["ANTHROPIC_MODEL"] ?? "claude-3-5-haiku-latest",
+      liveInference: true,
+    };
+  }
+  return {
+    provider: "deterministic",
+    model: "remedy-multilingual-rules-v1",
+    liveInference: false,
+  };
+}
+
+export function getActiveConnectorsSummary(dbConnected: boolean): ConnectorStatusSummary {
+  const ai = getActiveAiConfig();
+  const cloudApiConfigured = Boolean(
+    process.env["WHATSAPP_ACCESS_TOKEN"] && process.env["WHATSAPP_PHONE_NUMBER_ID"],
+  );
+  return {
+    database: {
+      provider: dbConnected ? "supabase-postgres" : "memory-fallback",
+      connected: dbConnected,
+      rlsScoped: true,
+    },
+    ai,
+    whatsapp: {
+      mode: cloudApiConfigured ? "cloud_api" : "wa_me_deeplink",
+      cloudApiConfigured,
+      webhookVerifyConfigured: Boolean(process.env["WHATSAPP_VERIFY_TOKEN"]),
+    },
+  };
+}
+
+const SYSTEM_PROMPT =
+  "Classify a WhatsApp sales message for an Indian spiritual & gemstone store. Return ONLY a valid JSON object with keys: intent (one of PRICE_ENQUIRY, BULK_ORDER, AVAILABILITY, COMPLAINT, GENERAL_QUERY), language (one of English, Hindi, Hinglish), matchedProductId (matching id from the supplied catalogue or null), and quantity (positive integer, default 1). Match only products from the supplied catalogue. Never invent or calculate prices.";
+
+async function classifyMessageWithAI(
+  message: string,
+  catalogSummary: unknown[],
+): Promise<{ text: string; provider: AnalysisProvider } | null> {
+  const userPrompt = `Customer message:\n${message}\n\nProduct catalogue:\n${JSON.stringify(catalogSummary)}\n\nReturn only JSON.`;
+
+  const geminiKey = process.env["GEMINI_API_KEY"];
+  if (geminiKey) {
+    const geminiModel = process.env["GEMINI_MODEL"] ?? "gemini-2.5-flash";
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${encodeURIComponent(geminiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 300,
+            temperature: 0.1,
+          },
+        }),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Gemini inference failed with status ${response.status}`);
+    }
+    const payload = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text ? { text, provider: "gemini" } : null;
+  }
+
+  const anthropicKey = process.env["ANTHROPIC_API_KEY"];
+  if (anthropicKey) {
+    const anthropicModel = process.env["ANTHROPIC_MODEL"] ?? "claude-3-5-haiku-latest";
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: anthropicModel,
+        max_tokens: 300,
+        temperature: 0.1,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`Anthropic inference failed with status ${response.status}`);
+    }
+    const payload = (await response.json()) as {
+      content?: Array<{ type?: string; text?: string }>;
+    };
+    const text = payload.content?.find((part) => part.type === "text")?.text;
+    return text ? { text, provider: "anthropic" } : null;
+  }
+
+  const groqKey = process.env["GROQ_API_KEY"];
+  const openAiKey = process.env["OPENAI_API_KEY"] ?? process.env["AI_API_KEY"];
+  const apiKey = groqKey ?? openAiKey;
+  if (!apiKey) return null;
+
+  const provider: AnalysisProvider = groqKey ? "groq" : "openai";
+  const baseUrl = (
+    process.env["OPENAI_BASE_URL"] ??
+    (groqKey ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1")
+  ).replace(/\/+$/, "");
+  const model = process.env["AI_MODEL"] ?? (groqKey ? "llama-3.3-70b-versatile" : "gpt-4o-mini");
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 300,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AI inference request failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  };
+  const text = payload.choices?.[0]?.message?.content;
+  return text ? { text, provider } : null;
+}
+
+export async function runGetWorkspaceData(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<{
+  products: CatalogProduct[];
+  leads: LeadRow[];
+  connectors: ConnectorStatusSummary;
+}> {
+  try {
+    const [productsResult, leadsResult] = await Promise.all([
+      supabase.from("remedy_products").select("*").order("category").order("name"),
+      supabase
+        .from("remedy_leads")
+        .select("*, matched_product:remedy_products(*)")
+        .eq("created_by", userId)
+        .order("created_at", { ascending: false })
+        .limit(500),
+    ]);
+    if (!productsResult.error && !leadsResult.error) {
+      const products =
+        productsResult.data.length > 0
+          ? (productsResult.data as CatalogProduct[])
+          : fallbackCatalogProducts;
+      return {
+        products,
+        leads: leadsResult.data as LeadRow[],
+        connectors: getActiveConnectorsSummary(true),
+      };
+    }
+  } catch {
+    // Fall back to owner-scoped server memory when running in demo/offline mode
+  }
+
+  return {
+    products: fallbackCatalogProducts,
+    leads: getOwnerFallbackLeads(userId),
+    connectors: getActiveConnectorsSummary(false),
+  };
+}
+
+export async function runAnalyzeCustomerMessage(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  message: string,
+) {
+  let catalog: CatalogProduct[] = fallbackCatalogProducts;
+  try {
+    const { data: products, error: productsError } = await supabase
+      .from("remedy_products")
+      .select("*");
+    if (!productsError && products && products.length > 0) {
+      catalog = products as CatalogProduct[];
+    }
+  } catch {
+    catalog = fallbackCatalogProducts;
+  }
+
+  let result = analyzeMessageFallback(message, catalog);
+
+  try {
+    const catalogSummary = catalog.map(
+      ({
+        id,
+        name,
+        hindi_name,
+        unit,
+        base_price,
+        tier10_plus_price,
+        tier50_plus_price,
+        tier100_plus_price,
+        in_stock,
+      }) => ({
+        id,
+        name,
+        hindi_name,
+        unit,
+        base_price,
+        tier10_plus_price,
+        tier50_plus_price,
+        tier100_plus_price,
+        in_stock,
+      }),
+    );
+    const aiOutput = await classifyMessageWithAI(message, catalogSummary);
+    if (aiOutput) {
+      result = parseModelAnalysis(aiOutput.text, message, catalog, aiOutput.provider);
+    }
+  } catch (error) {
+    console.error("Message analysis used the local fallback.", error);
+  }
+
+  try {
+    const { data: lead, error: leadError } = await supabase
+      .from("remedy_leads")
+      .insert({
+        customer_message: message,
+        detected_language: result.language,
+        intent: result.intent,
+        matched_product_id: result.matchedProductId,
+        extracted_quantity: result.quantity,
+        quoted_total: result.quotedTotal,
+        suggested_reply: result.suggestedReply,
+        created_by: userId,
+      })
+      .select("*, matched_product:remedy_products(*)")
+      .single();
+    if (!leadError && lead) {
+      return { analysis: result, lead: lead as LeadRow };
+    }
+  } catch {
+    // Fall back to owner-scoped server memory when database insert is unavailable
+  }
+
+  const matchedProduct = catalog.find((item) => item.id === result.matchedProductId) ?? null;
+  const fallbackLead: LeadRow = {
+    id: crypto.randomUUID(),
+    customer_message: message,
+    detected_language: result.language,
+    intent: result.intent,
+    matched_product_id: result.matchedProductId,
+    extracted_quantity: result.quantity,
+    quoted_total: result.quotedTotal,
+    suggested_reply: result.suggestedReply,
+    status: "NEW",
+    created_at: new Date().toISOString(),
+    created_by: userId,
+    matched_product: matchedProduct,
+  };
+  const ownerLeads = getOwnerFallbackLeads(userId);
+  fallbackLeadsByOwner.set(userId, [fallbackLead, ...ownerLeads]);
+  return { analysis: result, lead: fallbackLead };
+}
+
+export async function runUpdateSavedLead(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  data: {
+    id: string;
+    status?: "NEW" | "REPLIED" | "CONVERTED" | undefined;
+    suggestedReply?: string | undefined;
+  },
+): Promise<LeadRow> {
+  const changes = {
+    ...(data.status === undefined ? {} : { status: data.status }),
+    ...(data.suggestedReply === undefined ? {} : { suggested_reply: data.suggestedReply }),
+  };
+  try {
+    const { data: lead, error } = await supabase
+      .from("remedy_leads")
+      .update(changes)
+      .eq("id", data.id)
+      .eq("created_by", userId)
+      .select("*, matched_product:remedy_products(*)")
+      .single();
+    if (!error && lead) return lead as LeadRow;
+  } catch {
+    // Fall back to owner-scoped server memory
+  }
+
+  const ownerLeads = getOwnerFallbackLeads(userId);
+  const index = ownerLeads.findIndex((item) => item.id === data.id);
+  if (index === -1) throw new Error("Couldn't update this saved inquiry.");
+  const current = ownerLeads[index]!;
+  const updated: LeadRow = {
+    ...current,
+    ...(data.status === undefined ? {} : { status: data.status }),
+    ...(data.suggestedReply === undefined ? {} : { suggested_reply: data.suggestedReply }),
+  };
+  ownerLeads[index] = updated;
+  return updated;
+}
+
+export async function runDeleteSavedLead(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  leadId: string,
+): Promise<{ id: string; deleted: boolean }> {
+  let deletedInDb = false;
+  try {
+    const { error } = await supabase
+      .from("remedy_leads")
+      .delete()
+      .eq("id", leadId)
+      .eq("created_by", userId);
+    if (!error) deletedInDb = true;
+  } catch {
+    // Fall back to owner-scoped server memory
+  }
+
+  const ownerLeads = getOwnerFallbackLeads(userId);
+  const nextLeads = ownerLeads.filter((item) => item.id !== leadId);
+  const deletedInMemory = nextLeads.length !== ownerLeads.length;
+  fallbackLeadsByOwner.set(userId, nextLeads);
+
+  if (!deletedInDb && !deletedInMemory) {
+    throw new Error("Couldn't find this saved inquiry to delete.");
+  }
+  return { id: leadId, deleted: true };
+}
+
+export async function runToggleProductStock(
+  supabase: SupabaseClient<Database>,
+  productId: string,
+  inStock: boolean,
+): Promise<CatalogProduct> {
+  try {
+    const { data: updated, error } = await supabase
+      .from("remedy_products")
+      .update({ in_stock: inStock })
+      .eq("id", productId)
+      .select("*")
+      .single();
+    if (!error && updated) {
+      fallbackCatalogProducts = fallbackCatalogProducts.map((item) =>
+        item.id === productId ? (updated as CatalogProduct) : item,
+      );
+      return updated as CatalogProduct;
+    }
+  } catch {
+    // Fall back to server memory catalogue
+  }
+
+  const index = fallbackCatalogProducts.findIndex((item) => item.id === productId);
+  if (index === -1) {
+    throw new Error("Product not found in catalogue.");
+  }
+  const updatedProduct: CatalogProduct = {
+    ...fallbackCatalogProducts[index]!,
+    in_stock: inStock,
+  };
+  fallbackCatalogProducts = fallbackCatalogProducts.map((item, idx) =>
+    idx === index ? updatedProduct : item,
+  );
+  return updatedProduct;
+}
+
+export const getWorkspaceData = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    return runGetWorkspaceData(context.supabase, context.userId);
+  });
+
+export const analyzeCustomerMessage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ message: z.string().trim().min(1).max(4000) }).parse(input))
+  .handler(async ({ data, context }) => {
+    return runAnalyzeCustomerMessage(context.supabase, context.userId, data.message);
+  });
+
+export const updateSavedLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(["NEW", "REPLIED", "CONVERTED"]).optional(),
+        suggestedReply: z.string().max(4000).optional(),
+      })
+      .refine((value) => value.status !== undefined || value.suggestedReply !== undefined)
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    return runUpdateSavedLead(context.supabase, context.userId, data);
+  });
+
+export const deleteSavedLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    return runDeleteSavedLead(context.supabase, context.userId, data.id);
+  });
+
+export const toggleProductStock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid(), inStock: z.boolean() }).parse(input))
+  .handler(async ({ data, context }) => {
+    return runToggleProductStock(context.supabase, data.id, data.inStock);
+  });
+
+export const dispatchWhatsAppReply = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        leadId: z.string().uuid(),
+        replyText: z.string().trim().min(1).max(4000),
+        customerPhone: z.string().trim().max(32).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const updatedLead = await runUpdateSavedLead(context.supabase, context.userId, {
+      id: data.leadId,
+      status: "REPLIED",
+      suggestedReply: data.replyText,
+    });
+
+    const sanitizedPhone = (data.customerPhone ?? "").replace(/[^\d]/g, "");
+    const whatsappUrl = sanitizedPhone
+      ? `https://wa.me/${sanitizedPhone}?text=${encodeURIComponent(data.replyText)}`
+      : `https://wa.me/?text=${encodeURIComponent(data.replyText)}`;
+
+    const accessToken = process.env["WHATSAPP_ACCESS_TOKEN"];
+    const phoneNumberId = process.env["WHATSAPP_PHONE_NUMBER_ID"];
+
+    if (accessToken && phoneNumberId && sanitizedPhone.length >= 10) {
+      try {
+        const graphResponse = await fetch(
+          `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              messaging_product: "whatsapp",
+              to: sanitizedPhone,
+              type: "text",
+              text: { body: data.replyText },
+            }),
+          },
+        );
+        if (graphResponse.ok) {
+          return {
+            mode: "cloud_api" as const,
+            dispatched: true,
+            whatsappUrl,
+            lead: updatedLead,
+          };
+        }
+      } catch (error) {
+        console.error("WhatsApp Cloud API dispatch fell back to wa.me deep link.", error);
+      }
+    }
+
+    return {
+      mode: "wa_me_deeplink" as const,
+      dispatched: false,
+      whatsappUrl,
+      lead: updatedLead,
+    };
+  });
