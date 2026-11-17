@@ -26,11 +26,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { resolveSupabaseConfig, supabase } from "@/integrations/supabase/client";
-import {
-  createDemoAgentToken,
-  DEMO_SESSION_STORAGE_KEY,
-} from "@/integrations/supabase/auth-attacher";
+import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -142,39 +138,6 @@ function RemedySetuPage() {
     }
   }, [loadWorkspace]);
 
-  const activateLocalAgentSession = useCallback((agentEmail: string, explicitUserId?: string) => {
-    const cleanEmail = agentEmail.trim().toLowerCase() || "agent@remedysetu.in";
-    let deterministicId = explicitUserId;
-    if (!deterministicId) {
-      let hash = 0;
-      for (let i = 0; i < cleanEmail.length; i += 1) {
-        hash = (hash * 31 + cleanEmail.charCodeAt(i)) >>> 0;
-      }
-      const hex = hash.toString(16).padStart(8, "0");
-      deterministicId = `${hex}-0000-4000-8000-${hex}0000`;
-    }
-    const token = createDemoAgentToken(cleanEmail, deterministicId);
-    const localSession = {
-      access_token: token,
-      token_type: "bearer",
-      expires_in: 86400,
-      refresh_token: "",
-      user: {
-        id: deterministicId,
-        email: cleanEmail,
-        app_metadata: {},
-        user_metadata: {},
-        aud: "authenticated",
-        created_at: new Date().toISOString(),
-      },
-    } as Session;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(DEMO_SESSION_STORAGE_KEY, JSON.stringify(localSession));
-    }
-    setSession(localSession);
-    setAuthLoading(false);
-  }, []);
-
   useEffect(() => {
     let mounted = true;
 
@@ -192,31 +155,13 @@ function RemedySetuPage() {
             window.history.replaceState({}, document.title, window.location.pathname);
           });
       }
-
-      try {
-        const storedDemo = window.localStorage.getItem(DEMO_SESSION_STORAGE_KEY);
-        if (storedDemo) {
-          const parsed = JSON.parse(storedDemo) as Session;
-          if (parsed?.user?.id) {
-            setSession(parsed);
-            setAuthLoading(false);
-            return () => {
-              mounted = false;
-            };
-          }
-        }
-      } catch {
-        window.localStorage.removeItem(DEMO_SESSION_STORAGE_KEY);
-      }
     }
 
     void supabase.auth
       .getSession()
       .then(({ data }) => {
         if (mounted) {
-          if (data.session) {
-            setSession(data.session);
-          }
+          setSession(data.session ?? null);
           setAuthLoading(false);
         }
       })
@@ -226,10 +171,10 @@ function RemedySetuPage() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (newSession) {
-        setSession(newSession);
+      if (mounted) {
+        setSession(newSession ?? null);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
     return () => {
       mounted = false;
@@ -270,66 +215,40 @@ function RemedySetuPage() {
           password,
           options: { emailRedirectTo: window.location.origin },
         });
-        if (!error && data.session) {
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        if (data.session) {
           setSession(data.session);
           toast.success("Account created — welcome to Remedy Setu.");
           return;
         }
-        // Sign in directly in-app so email verification never redirects to an external site
-        activateLocalAgentSession(email, data?.user?.id);
-        toast.success("Team account ready — signed in directly to your workspace.");
+        toast.success("Account created! Please check your email to confirm your sign-up.");
+        setIsCreatingAccount(false);
         return;
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error && data.session) {
-        setSession(data.session);
-        return;
-      }
-      if (error && /not confirmed|invalid login|fetch|network/i.test(error.message)) {
-        activateLocalAgentSession(email);
-        toast.success("Signed in to the Remedy Setu sales desk.");
-        return;
-      }
       if (error) {
         toast.error(error.message);
+        return;
       }
-    } catch {
-      activateLocalAgentSession(email);
-      toast.success("Signed in to the Remedy Setu sales desk.");
+      if (data.session) {
+        setSession(data.session);
+        toast.success("Signed in to the Remedy Setu sales desk.");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Authentication failed.");
     }
   }
 
   async function signInWithGoogle() {
-    try {
-      const { url, key } = resolveSupabaseConfig();
-      const settingsRes = await fetch(`${url}/auth/v1/settings`, {
-        headers: { apikey: key },
-      });
-      if (settingsRes.ok) {
-        const settings = (await settingsRes.json()) as {
-          external?: { google?: boolean };
-        };
-        if (settings.external?.google === false) {
-          activateLocalAgentSession(email || "google.agent@remedysetu.in");
-          toast.success(
-            "Signed in to Remedy Setu (Google OAuth provider is not enabled in Supabase Auth settings yet).",
-          );
-          return;
-        }
-      }
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: window.location.origin },
-      });
-      if (error) {
-        activateLocalAgentSession(email || "google.agent@remedysetu.in");
-        toast.success("Signed in to the Remedy Setu sales desk.");
-      }
-    } catch {
-      activateLocalAgentSession(email || "google.agent@remedysetu.in");
-      toast.success("Signed in to the Remedy Setu sales desk.");
-    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) toast.error(error.message);
   }
 
   async function generateReply(event: React.FormEvent<HTMLFormElement>) {
@@ -455,9 +374,6 @@ function RemedySetuPage() {
   }
 
   async function handleSignOut() {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(DEMO_SESSION_STORAGE_KEY);
-    }
     setWorkspace({ products: [], leads: [] });
     setAnalysisCard(null);
     setSession(null);
@@ -537,18 +453,6 @@ function RemedySetuPage() {
             <span />
           </div>
           <div className="provider-actions">
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full"
-              onClick={() => {
-                activateLocalAgentSession("agent@remedysetu.in");
-                toast.success("Entered Demo Sales Desk.");
-              }}
-            >
-              <Sparkles />
-              Instant Demo Sales Desk (No Email Needed)
-            </Button>
             <Button
               type="button"
               variant="outline"

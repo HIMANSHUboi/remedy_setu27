@@ -269,10 +269,15 @@ export async function runGetWorkspaceData(
         .limit(500),
     ]);
     if (!productsResult.error && !leadsResult.error) {
-      const products =
-        productsResult.data.length > 0
-          ? (productsResult.data as CatalogProduct[])
-          : fallbackCatalogProducts;
+      let products = productsResult.data as CatalogProduct[];
+      if (products.length === 0) {
+        const { data: seeded } = await supabase
+          .from("remedy_products")
+          .upsert(DEFAULT_CATALOG_PRODUCTS, { onConflict: "id" })
+          .select("*");
+        products =
+          seeded && seeded.length > 0 ? (seeded as CatalogProduct[]) : fallbackCatalogProducts;
+      }
       return {
         products,
         leads: leadsResult.data as LeadRow[],

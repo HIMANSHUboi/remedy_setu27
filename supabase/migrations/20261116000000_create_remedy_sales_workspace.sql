@@ -16,10 +16,11 @@ CREATE TABLE public.remedy_products (
   description TEXT NOT NULL
 );
 
-GRANT SELECT, UPDATE ON public.remedy_products TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.remedy_products TO authenticated;
 GRANT ALL ON public.remedy_products TO service_role;
 ALTER TABLE public.remedy_products ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Signed-in agents view catalogue" ON public.remedy_products FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Signed-in agents seed catalogue" ON public.remedy_products FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Signed-in agents update catalogue stock" ON public.remedy_products FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
 CREATE TABLE public.remedy_leads (
