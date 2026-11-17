@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { resolveSupabaseConfig, supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -248,11 +248,31 @@ function RemedySetuPage() {
   }
 
   async function signInWithGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (error) toast.error(error.message);
+    try {
+      const { url, key } = resolveSupabaseConfig();
+      const settingsRes = await fetch(`${url}/auth/v1/settings`, {
+        headers: { apikey: key },
+      });
+      if (settingsRes.ok) {
+        const settings = (await settingsRes.json()) as {
+          external?: { google?: boolean };
+        };
+        if (settings.external?.google === false) {
+          toast.error(
+            "Google Sign-In is not enabled in your Supabase Auth Providers yet. Please use Email & Password above, or enable Google in Supabase Dashboard → Authentication → Providers.",
+          );
+          document.getElementById("email")?.focus();
+          return;
+        }
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't start Google Sign-In.");
+    }
   }
 
   async function generateReply(event: React.FormEvent<HTMLFormElement>) {
