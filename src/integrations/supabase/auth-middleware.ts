@@ -1,6 +1,7 @@
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { resolveSupabaseConfig } from "./client";
 import type { Database } from "./types";
 
 function isNewSupabaseApiKey(value: string): boolean {
@@ -56,9 +57,7 @@ export async function authenticateBearerRequest(request: Request | undefined): P
   userId: string;
   isDemoSession: boolean;
 }> {
-  const SUPABASE_URL = process.env["SUPABASE_URL"] ?? "https://uhxjrjdajmjilhshvdbz.supabase.co";
-  const SUPABASE_PUBLISHABLE_KEY =
-    process.env["SUPABASE_PUBLISHABLE_KEY"] ?? "sb_publishable_oZdNs7uL3QGn8OXCaM2-Mg_mOm_NShJ";
+  const { url: SUPABASE_URL, key: SUPABASE_PUBLISHABLE_KEY } = resolveSupabaseConfig();
   const SUPABASE_SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 
   if (!request?.headers) {

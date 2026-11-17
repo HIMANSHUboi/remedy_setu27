@@ -5,6 +5,7 @@ import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig(({ command }) => ({
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   resolve: {
     tsconfigPaths: true,
     alias: {
