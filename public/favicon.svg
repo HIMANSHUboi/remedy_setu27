@@ -1,14 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="rsFavGrad" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#EA580C" />
-      <stop offset="55%" stop-color="#B43B18" />
-      <stop offset="100%" stop-color="#7C2D12" />
+    <linearGradient id="remedyBg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9A3B1C" />
+      <stop offset="100%" stop-color="#C56A2D" />
     </linearGradient>
   </defs>
-  <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#rsFavGrad)" />
-  <path d="M23 15H41L48 24L32 41L16 24L23 15Z" stroke="#FDE68A" stroke-width="2.6" stroke-linejoin="round" />
-  <path d="M16 24H48" stroke="#FDE68A" stroke-width="2" stroke-linecap="round" />
-  <path d="M23 15L27 24L32 41L37 24L41 15" stroke="#FDE68A" stroke-width="1.8" stroke-linejoin="round" />
-  <path d="M13 48C18.5 41.5 24.8 38.5 32 38.5C39.2 38.5 45.5 41.5 51 48" stroke="#FFF7ED" stroke-width="2.8" stroke-linecap="round" />
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#remedyBg)" />
+  <g stroke="#FFFAF5" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M23 19h18l9 10-18 19-18-19 9-10Z" />
+    <path d="M14 29h36" />
+    <path d="M32 48 25 29l7-10 7 10-7 19Z" />
+  </g>
+  <circle cx="52" cy="12" r="6" fill="#D4A359" stroke="#FAF6F0" stroke-width="2.5" />
 </svg>
