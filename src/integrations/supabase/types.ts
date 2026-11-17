@@ -105,7 +105,13 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      register_team_agent: {
+        Args: {
+          agent_email: string;
+          agent_password: string;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       remedy_lead_intent:

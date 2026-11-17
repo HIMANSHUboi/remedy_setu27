@@ -210,18 +210,12 @@ function RemedySetuPage() {
     event.preventDefault();
     try {
       if (isCreatingAccount) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
+        const { error: rpcError } = await supabase.rpc("register_team_agent", {
+          agent_email: email,
+          agent_password: password,
         });
-        if (error && !/already registered/i.test(error.message)) {
-          toast.error(error.message);
-          return;
-        }
-        if (data?.session) {
-          setSession(data.session);
-          toast.success("Account created — welcome to Remedy Setu.");
+        if (rpcError) {
+          toast.error(rpcError.message);
           return;
         }
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -234,7 +228,7 @@ function RemedySetuPage() {
         }
         if (signInData.session) {
           setSession(signInData.session);
-          toast.success("Account ready — welcome to Remedy Setu.");
+          toast.success("Account created — welcome to Remedy Setu.");
         }
         return;
       }
