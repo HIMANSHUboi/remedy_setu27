@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" fill="none">
+  <defs>
+    <linearGradient id="rsBadgeGrad" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EA580C" />
+      <stop offset="55%" stop-color="#B43B18" />
+      <stop offset="100%" stop-color="#7C2D12" />
+    </linearGradient>
+    <linearGradient id="rsGoldGrad" x1="16" y1="12" x2="48" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+  <!-- Emblem Icon -->
+  <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#rsBadgeGrad)" />
+  <rect x="5" y="5" width="54" height="54" rx="14" stroke="#FFF7ED" stroke-opacity="0.28" stroke-width="1.2" />
+  <!-- Faceted Navratna Gemstone Crown -->
+  <path d="M23 15H41L48 24L32 41L16 24L23 15Z" fill="url(#rsGoldGrad)" fill-opacity="0.22" stroke="#FDE68A" stroke-width="2.2" stroke-linejoin="round" />
+  <path d="M16 24H48" stroke="#FDE68A" stroke-width="1.8" stroke-linecap="round" />
+  <path d="M23 15L27 24L32 41L37 24L41 15" stroke="#FDE68A" stroke-width="1.6" stroke-linejoin="round" />
+  <!-- Setu (Bridge) Arch Base -->
+  <path d="M13 48C18.5 41.5 24.8 38.5 32 38.5C39.2 38.5 45.5 41.5 51 48" stroke="#FFF7ED" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M18 52C22.2 47.5 26.8 45.5 32 45.5C37.2 45.5 41.8 47.5 46 52" stroke="#FDBA74" stroke-width="1.8" stroke-linecap="round" />
+  <!-- Wordmark -->
+  <text x="72" y="34" fill="#1C1917" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="800" letter-spacing="-0.02em">
+    Remedy<tspan fill="#C2410C">Setu</tspan>
+  </text>
+  <text x="73" y="50" fill="#78716C" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10.5" font-weight="600" letter-spacing="0.14em">
+    ASTRO &amp; GEMSTONE DESK
+  </text>
+</svg>

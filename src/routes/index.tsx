@@ -2,19 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import type { Session } from "@supabase/supabase-js";
 import {
-  AlertTriangle,
-  ArrowDownToLine,
-  ArrowUpRight,
-  BarChart3,
-  Boxes,
-  Check,
-  CheckCheck,
   ChevronDown,
   Clipboard,
   Download,
-  Gem,
-  Languages,
-  Layers,
   LoaderCircle,
   LogOut,
   MessageCircle,
@@ -23,13 +13,7 @@ import {
   Plus,
   RefreshCw,
   Search,
-  ShieldCheck,
-  Sparkles,
-  Tags,
   Trash2,
-  TrendingUp,
-  WandSparkles,
-  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -111,17 +95,17 @@ const featureCategoryLabels: Record<(typeof PLATFORM_FEATURES)[number]["category
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Remedy Setu — AI Sales & Stock Desk" },
+      { title: "Remedy Setu — Sales & Inventory Desk" },
       {
         name: "description",
         content:
-          "Multilingual WhatsApp reply assistant, real-time database stock availability verifier, AI sales insights, and wholesale spiritual-products catalogue.",
+          "WhatsApp reply assistant, database stock availability verifier, and wholesale catalogue for Remedy Setu.",
       },
-      { property: "og:title", content: "Remedy Setu — AI Sales & Stock Desk" },
+      { property: "og:title", content: "Remedy Setu — Sales & Inventory Desk" },
       {
         property: "og:description",
         content:
-          "Verify fixed DB stock quantities, generate multilingual WhatsApp replies, unlock AI sales insights, and manage customer leads.",
+          "Verify database stock quantities, generate customer replies, and manage wholesale leads.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -157,18 +141,15 @@ function RemedySetuPage() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  // Stock simulator state
   const [checkerProductId, setCheckerProductId] = useState<string>("");
   const [checkerQuantity, setCheckerQuantity] = useState<number>(10);
   const [liveStockCheck, setLiveStockCheck] = useState<StockCheckResult | null>(null);
   const [checkingStockDb, setCheckingStockDb] = useState(false);
 
-  // Inline fixed stock draft quantities per product id
   const [stockDrafts, setStockDrafts] = useState<Record<string, number>>({});
   const [updatingStockId, setUpdatingStockId] = useState<string | null>(null);
   const [fulfillingLeadId, setFulfillingLeadId] = useState<string | null>(null);
 
-  // AI Workspace insights state
   const [aiInsightsData, setAiInsightsData] = useState<WorkspaceInsightsResult | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
 
@@ -205,7 +186,7 @@ function RemedySetuPage() {
       });
       syncStockDrafts(products);
     } catch {
-      toast.error("Couldn't load your shared sales workspace.");
+      toast.error("Couldn't load workspace data.");
     } finally {
       setLoadingWorkspace(false);
     }
@@ -217,7 +198,7 @@ function RemedySetuPage() {
       const result = await generateInsightsFn();
       setAiInsightsData(result);
     } catch {
-      toast.error("Couldn't refresh AI workspace insights.");
+      toast.error("Couldn't refresh insights.");
     } finally {
       setLoadingInsights(false);
     }
@@ -363,7 +344,7 @@ function RemedySetuPage() {
         aud: "authenticated",
         role: "authenticated",
         app_metadata: {},
-        user_metadata: { name: "Remedy Setu Lead Agent" },
+        user_metadata: { name: "Remedy Setu Agent" },
         created_at: new Date().toISOString(),
       },
     } as unknown as Session;
@@ -372,7 +353,7 @@ function RemedySetuPage() {
       window.localStorage.setItem(DEMO_SESSION_STORAGE_KEY, JSON.stringify(demoSession));
     }
     setSession(demoSession);
-    toast.success("Signed in to the Instant Demo Sales Desk.");
+    toast.success("Signed in to Demo Workspace.");
   }
 
   async function signIn(event: React.FormEvent<HTMLFormElement>) {
@@ -397,7 +378,7 @@ function RemedySetuPage() {
         }
         if (signInData.session) {
           setSession(signInData.session);
-          toast.success("Account created — welcome to Remedy Setu.");
+          toast.success("Account created.");
         }
         return;
       }
@@ -409,7 +390,7 @@ function RemedySetuPage() {
       }
       if (data.session) {
         setSession(data.session);
-        toast.success("Signed in to the Remedy Setu sales desk.");
+        toast.success("Signed in.");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Authentication failed.");
@@ -431,15 +412,15 @@ function RemedySetuPage() {
       }));
       if (result.analysis.stockStatus === "INSUFFICIENT_STOCK") {
         toast.warning(
-          `Requested ${result.analysis.quantity} units, but only ${result.analysis.availableStock ?? 0} available in DB stock.`,
+          `Requested ${result.analysis.quantity} units, only ${result.analysis.availableStock ?? 0} in DB stock.`,
         );
       } else if (result.analysis.stockStatus === "OUT_OF_STOCK") {
-        toast.warning("Matched product is currently out of stock in the database.");
+        toast.warning("Matched product is out of stock.");
       } else {
-        toast.success("DB stock verified & reply ready — inquiry saved.");
+        toast.success("Reply generated and saved.");
       }
     } catch {
-      toast.error("Couldn't prepare a reply. Your message is still here; please try again.");
+      toast.error("Couldn't generate reply. Please try again.");
     } finally {
       setAnalyzing(false);
     }
@@ -455,15 +436,15 @@ function RemedySetuPage() {
       setLiveStockCheck(checked);
       if (checked.isAvailable) {
         toast.success(
-          `DB Check: ${checked.requestedQuantity} ${checked.unit} available (${checked.availableStock} ${checked.unit} in DB).`,
+          `${checked.requestedQuantity} ${checked.unit} available (${checked.availableStock} ${checked.unit} in DB).`,
         );
       } else {
         toast.warning(
-          `DB Check: Only ${checked.availableStock} ${checked.unit} in stock (short by ${checked.shortfall} ${checked.unit}).`,
+          `Only ${checked.availableStock} ${checked.unit} in stock (short by ${checked.shortfall} ${checked.unit}).`,
         );
       }
     } catch {
-      toast.error("Couldn't verify stock against the database.");
+      toast.error("Couldn't verify database stock.");
     } finally {
       setCheckingStockDb(false);
     }
@@ -491,7 +472,7 @@ function RemedySetuPage() {
       );
       return updated;
     } catch {
-      toast.error("Couldn't save your changes. Please try again.");
+      toast.error("Couldn't save changes.");
       return null;
     }
   }
@@ -533,7 +514,7 @@ function RemedySetuPage() {
 
       if (updatedProduct) {
         toast.success(
-          `Order fulfilled! Deducted ${result.deductedQuantity} ${updatedProduct.unit} from DB (${result.remainingStock} ${updatedProduct.unit} remaining).`,
+          `Order fulfilled. Deducted ${result.deductedQuantity} ${updatedProduct.unit} (${result.remainingStock} ${updatedProduct.unit} left).`,
         );
       } else {
         toast.success("Lead marked as converted.");
@@ -554,9 +535,9 @@ function RemedySetuPage() {
       }));
       setSelectedLead((current) => (current?.id === id ? null : current));
       setAnalysisCard((current) => (current?.lead.id === id ? null : current));
-      toast.success("Lead removed from your workspace.");
+      toast.success("Lead deleted.");
     } catch {
-      toast.error("Couldn't remove this lead.");
+      toast.error("Couldn't delete lead.");
     }
   }
 
@@ -575,10 +556,10 @@ function RemedySetuPage() {
         [product.id]: getAvailableStockQuantity(updated),
       }));
       toast.success(
-        `${updated.name} marked as ${updated.in_stock ? `In stock (${updated.stock_quantity} ${updated.unit})` : "Out of stock (0)"}.`,
+        `${updated.name}: ${updated.in_stock ? `In stock (${updated.stock_quantity} ${updated.unit})` : "Out of stock (0)"}.`,
       );
     } catch {
-      toast.error("Couldn't update product stock status.");
+      toast.error("Couldn't update stock status.");
     } finally {
       setUpdatingStockId(null);
     }
@@ -599,11 +580,9 @@ function RemedySetuPage() {
         ...current,
         [product.id]: updated.stock_quantity,
       }));
-      toast.success(
-        `DB stock updated: ${updated.name} now has ${updated.stock_quantity} ${updated.unit} available.`,
-      );
+      toast.success(`Stock updated: ${updated.name} (${updated.stock_quantity} ${updated.unit}).`);
     } catch {
-      toast.error("Couldn't update fixed stock quantity in database.");
+      toast.error("Couldn't update stock quantity.");
     } finally {
       setUpdatingStockId(null);
     }
@@ -659,7 +638,7 @@ function RemedySetuPage() {
           }
         : current,
     );
-    toast.success("Added smart note to your WhatsApp reply.");
+    toast.success("Added note to reply.");
   }
 
   function exportLeadsCsv() {
@@ -702,7 +681,7 @@ function RemedySetuPage() {
     link.download = `remedy-setu-leads-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${filteredLeads.length} leads to CSV.`);
+    toast.success(`Exported ${filteredLeads.length} leads.`);
   }
 
   async function copyReply(text: string) {
@@ -710,7 +689,7 @@ function RemedySetuPage() {
       await navigator.clipboard.writeText(text);
       toast.success("Reply copied.");
     } catch {
-      toast.error("Couldn't copy this reply.");
+      toast.error("Couldn't copy reply.");
     }
   }
 
@@ -740,12 +719,12 @@ function RemedySetuPage() {
           : current,
       );
       if (dispatched.mode === "cloud_api" && dispatched.dispatched) {
-        toast.success("Dispatched directly via WhatsApp Business Cloud API.");
+        toast.success("Sent via WhatsApp Cloud API.");
         return;
       }
       window.open(dispatched.whatsappUrl, "_blank", "noopener,noreferrer");
     } catch {
-      toast.error("Couldn't dispatch WhatsApp reply. Please try again.");
+      toast.error("Couldn't send WhatsApp reply.");
     }
   }
 
@@ -768,25 +747,13 @@ function RemedySetuPage() {
   if (!session)
     return (
       <main className="login-screen">
-        <div className="login-brand">
-          <BrandMark />
-          <div>
-            <span className="brand-name">Remedy Setu</span>
-            <span className="brand-caption">Sales & Stock Desk</span>
+        <div className="login-content glass-panel">
+          <div className="mb-5 flex justify-center">
+            <RemedySetuLogo />
           </div>
-        </div>
-        <div className="login-content">
-          <div className="eyebrow">
-            <span className="eyebrow-mark" /> RETAIL & ASTROLOGY PARTNERS
-          </div>
-          <h1>
-            Better conversations
-            <br />
-            begin <span>with care.</span>
-          </h1>
+          <h1>{isCreatingAccount ? "Create team account" : "Sign in"}</h1>
           <p className="login-description">
-            Your shared desk for customer replies, real-time DB stock verification, AI sales
-            insights, and wholesale pricing.
+            Manage customer WhatsApp inquiries, live database inventory, and wholesale quotes.
           </p>
           <div className="provider-actions">
             <Button
@@ -795,14 +762,12 @@ function RemedySetuPage() {
               className="w-full font-semibold"
               onClick={startInstantDemoSession}
             >
-              <Sparkles />
-              Instant Demo Sales Desk (No Email Needed)
-              <ArrowUpRight />
+              Open Demo Workspace
             </Button>
           </div>
           <div className="provider-divider">
             <span />
-            <span>OR SIGN IN WITH WORK EMAIL</span>
+            <span>OR USE EMAIL</span>
             <span />
           </div>
           <form className="login-form" onSubmit={signIn}>
@@ -816,7 +781,7 @@ function RemedySetuPage() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              placeholder="you@company.com"
+              placeholder="you@remedysetu.com"
               className="field-input"
             />
             <label htmlFor="password" className="field-label">
@@ -834,43 +799,34 @@ function RemedySetuPage() {
               className="field-input"
             />
             <Button type="submit" className="w-full" disabled={!email || !password}>
-              {isCreatingAccount ? "Create team account" : "Sign in to the sales desk"}
-              <ArrowUpRight />
+              {isCreatingAccount ? "Create account" : "Sign in"}
             </Button>
           </form>
           <div className="login-switch">
-            <span>{isCreatingAccount ? "Already have an account?" : "New to the sales desk?"}</span>
+            <span>{isCreatingAccount ? "Already have an account?" : "Need an account?"}</span>
             <Button variant="link" onClick={() => setIsCreatingAccount((value) => !value)}>
-              {isCreatingAccount ? "Sign in" : "Create an account"}
+              {isCreatingAccount ? "Sign in" : "Create account"}
             </Button>
           </div>
-          <p className="login-footnote">
-            Team leads, fixed stock quantities, and prices stay in your shared workspace.
-          </p>
         </div>
       </main>
     );
 
   return (
     <main className="workspace-shell">
-      <header className="topbar">
+      <header className="topbar glass-topbar">
         <a href="#workspace" className="topbar-brand" aria-label="Remedy Setu home">
-          <BrandMark />
-          <span className="brand-name">Remedy Setu</span>
-          <span className="brand-divider" />
-          <span className="topbar-label">SALES & INVENTORY DESK</span>
+          <RemedySetuLogo />
         </a>
         <nav className="primary-nav" aria-label="Workspace views">
           <NavButton active={activeTab === "assistant"} onClick={() => setActiveTab("assistant")}>
-            <WandSparkles />
-            Reply assistant
+            Reply Assistant
           </NavButton>
           <NavButton active={activeTab === "leads"} onClick={() => setActiveTab("leads")}>
-            Saved leads <span className="nav-count">{workspace.leads.length}</span>
+            Leads <span className="nav-count">{workspace.leads.length}</span>
           </NavButton>
           <NavButton active={activeTab === "catalog"} onClick={() => setActiveTab("catalog")}>
-            <Tags />
-            Price list & stock <span className="nav-count">{totalFixedStockUnits}</span>
+            Inventory & Rates <span className="nav-count">{totalFixedStockUnits}</span>
           </NavButton>
           <NavButton
             active={activeTab === "insights"}
@@ -879,8 +835,7 @@ function RemedySetuPage() {
               if (!aiInsightsData) void refreshAiInsights();
             }}
           >
-            <BarChart3 />
-            AI insights & features
+            Insights & Features
           </NavButton>
         </nav>
         <div className="account-control">
@@ -899,136 +854,80 @@ function RemedySetuPage() {
       </header>
 
       <div className="workspace-content" id="workspace">
-        <div className="workspace-heading">
-          <div>
-            <div className="eyebrow">
-              <span className="eyebrow-mark" /> REMEDY SETU · TEAM WORKSPACE
-            </div>
-            <h1>
-              {activeTab === "assistant"
-                ? "Every reply, verified against live stock."
-                : activeTab === "leads"
-                  ? "The customer conversation, continued."
-                  : activeTab === "catalog"
-                    ? "Thoughtful goods. Fixed stock & clear rates."
-                    : "AI intelligence, inventory health & platform features."}
-            </h1>
-            <p>
-              {activeTab === "assistant"
-                ? "Checks fixed database stock quantities, calculates exact wholesale tiers, and coaches your next step."
-                : activeTab === "leads"
-                  ? "Track incoming requests, fulfill orders with 1-click DB stock deduction, and export leads."
-                  : activeTab === "catalog"
-                    ? "Manage fixed available stock quantities in the database and review wholesale tier rates."
-                    : "Spot demand-vs-stock bottlenecks, review AI conversion tips, and explore all workspace features."}
-            </p>
-          </div>
-          <div className="heading-mark" aria-hidden="true">
-            <span>ॐ</span>
-          </div>
-        </div>
-
-        {/* Live Workspace KPI & Stock Pulse Strip */}
         <section className="kpi-ribbon" aria-label="Workspace stock and sales summary">
-          <div className="kpi-card">
-            <div className="kpi-card-top">
-              <span>OPEN INQUIRIES</span>
-              <MessageCircle />
-            </div>
+          <div className="kpi-card glass-panel">
+            <span className="kpi-label">Open Leads</span>
             <strong>
-              {openLeads} <span>of {workspace.leads.length} leads</span>
+              {openLeads} <span>/ {workspace.leads.length} total</span>
             </strong>
-            <p>Owner-scoped customer conversations</p>
           </div>
-          <div className="kpi-card">
-            <div className="kpi-card-top">
-              <span>QUOTE PIPELINE</span>
-              <TrendingUp />
-            </div>
+          <div className="kpi-card glass-panel">
+            <span className="kpi-label">Quote Pipeline</span>
             <strong>
               {formatRupees(computedInsights.pipelineMetrics.totalPipelineInr)}{" "}
               <span>
-                ({formatRupees(computedInsights.pipelineMetrics.convertedRevenueInr)} won)
+                ({formatRupees(computedInsights.pipelineMetrics.convertedRevenueInr)} converted)
               </span>
             </strong>
-            <p>Deterministic INR wholesale quotes</p>
           </div>
-          <div className="kpi-card">
-            <div className="kpi-card-top">
-              <span>FIXED DB STOCK</span>
-              <Boxes />
-            </div>
+          <div className="kpi-card glass-panel">
+            <span className="kpi-label">Available DB Stock</span>
             <strong>
-              {totalFixedStockUnits} <span>units across {workspace.products.length} SKUs</span>
+              {totalFixedStockUnits} <span>units ({workspace.products.length} SKUs)</span>
             </strong>
-            <p>
-              {computedInsights.pipelineMetrics.outOfStockCount > 0
-                ? `${computedInsights.pipelineMetrics.outOfStockCount} out of stock · ${computedInsights.pipelineMetrics.lowStockCount} low stock`
-                : `${computedInsights.pipelineMetrics.lowStockCount} low-stock alerts · All SKUs active`}
-            </p>
           </div>
-          <div className="kpi-card">
-            <div className="kpi-card-top">
-              <span>AI & DB ENGINE</span>
-              <Sparkles />
-            </div>
+          <div className="kpi-card glass-panel">
+            <span className="kpi-label">Stock Health</span>
             <strong>
-              {(workspace.connectors?.ai.provider ?? "deterministic").toUpperCase()}{" "}
-              <span>· DB Stock Check</span>
+              {computedInsights.pipelineMetrics.outOfStockCount === 0
+                ? "All In Stock"
+                : `${computedInsights.pipelineMetrics.outOfStockCount} Out of Stock`}{" "}
+              <span>({computedInsights.pipelineMetrics.lowStockCount} low stock)</span>
             </strong>
-            <p>Live quantity verification & deal coaching</p>
           </div>
         </section>
 
         {activeTab === "assistant" && (
           <section className="assistant-grid" aria-label="WhatsApp reply assistant">
             <div className="input-column">
-              <section className="workspace-section">
+              <section className="workspace-section glass-panel">
                 <SectionHeading
-                  eyebrow="01 · CUSTOMER MESSAGE"
-                  title="A note from your customer"
-                  subtitle="Paste their WhatsApp message. We check DB stock quantity, tier pricing, and AI buying signals."
+                  title="Customer Inquiry"
+                  subtitle="Paste a WhatsApp message in English, Hindi, or Hinglish to check DB stock and generate a quote."
                 />
                 <form onSubmit={generateReply}>
                   <Textarea
                     aria-label="Customer WhatsApp message"
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Paste the customer's message here (e.g. 'Neelam 5 ratti rate?' or 'Neelam 60 ratti stock hai kya?')…"
+                    placeholder="e.g. Neelam 5 ratti rate? or Neelam 60 ratti stock hai kya?"
                     className="message-input"
                     maxLength={4000}
                     required
                   />
                   <div className="message-meta">
-                    <span>{message.length}/4,000 characters</span>
-                    <span>
-                      <Languages /> English · हिंदी · Hinglish · DB Stock Verified
-                    </span>
+                    <span>{message.length}/4,000</span>
+                    <span>English / Hindi / Hinglish</span>
                   </div>
                   <Button
                     type="submit"
                     className="generate-button w-full"
                     disabled={analyzing || !message.trim()}
                   >
-                    {analyzing ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-                    {analyzing
-                      ? "Checking DB stock & preparing reply…"
-                      : "Check DB stock, generate reply & save lead"}
-                    {!analyzing && <ArrowUpRight className="button-trailing" />}
+                    {analyzing && <LoaderCircle className="animate-spin" />}
+                    {analyzing ? "Checking DB stock…" : "Check Stock & Generate Reply"}
                   </Button>
                 </form>
               </section>
 
-              {/* Live DB Stock Availability & Tier Simulator */}
-              <section className="workspace-section stock-simulator-card">
+              <section className="workspace-section glass-panel">
                 <SectionHeading
-                  eyebrow="LIVE DB INVENTORY CHECKER"
-                  title="Verify exact stock quantity"
-                  subtitle="Select any item and quantity to check database availability and wholesale tier rates on the spot."
+                  title="Quick DB Stock Checker"
+                  subtitle="Check whether a specific product quantity is available in the database."
                 />
                 <div className="simulator-controls">
                   <label className="simulator-field">
-                    <span>PRODUCT SKU</span>
+                    <span>PRODUCT</span>
                     <div className="select-wrap w-full">
                       <select
                         aria-label="Select product to check stock"
@@ -1049,7 +948,7 @@ function RemedySetuPage() {
                     </div>
                   </label>
                   <label className="simulator-field simulator-qty-field">
-                    <span>QUANTITY ({selectedCheckerProduct?.unit ?? "units"})</span>
+                    <span>QTY ({selectedCheckerProduct?.unit ?? "units"})</span>
                     <Input
                       type="number"
                       min={1}
@@ -1070,29 +969,20 @@ function RemedySetuPage() {
                   >
                     <div className="stock-check-header">
                       <strong>
-                        {instantStockCheck.isAvailable ? (
-                          <>
-                            <ShieldCheck className="inline size-4" /> AVAILABLE IN DB
-                          </>
-                        ) : instantStockCheck.stockStatus === "INSUFFICIENT_STOCK" ? (
-                          <>
-                            <AlertTriangle className="inline size-4" /> INSUFFICIENT DB STOCK
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="inline size-4" /> OUT OF STOCK IN DB
-                          </>
-                        )}
+                        {instantStockCheck.isAvailable
+                          ? "Available in DB"
+                          : instantStockCheck.stockStatus === "INSUFFICIENT_STOCK"
+                            ? "Insufficient DB Stock"
+                            : "Out of Stock"}
                       </strong>
                       <span>
-                        DB Fixed Stock: <b>{instantStockCheck.availableStock}</b>{" "}
-                        {instantStockCheck.unit}
+                        DB Stock: <b>{instantStockCheck.availableStock}</b> {instantStockCheck.unit}
                       </span>
                     </div>
                     <p>{instantStockCheck.summaryMessage}</p>
                     <div className="stock-check-metrics">
                       <div>
-                        <span>Tier Rate</span>
+                        <span>Unit Rate</span>
                         <strong>
                           {formatRupees(instantStockCheck.unitRate)} / {instantStockCheck.unit}
                         </strong>
@@ -1102,11 +992,11 @@ function RemedySetuPage() {
                         <strong>{formatRupees(instantStockCheck.quotedTotal)}</strong>
                       </div>
                       <div>
-                        <span>Wholesale Savings</span>
+                        <span>Tier Savings</span>
                         <strong>
                           {instantStockCheck.savingsVsRetail > 0
                             ? formatRupees(instantStockCheck.savingsVsRetail)
-                            : "Standard rate"}
+                            : "Standard"}
                         </strong>
                       </div>
                     </div>
@@ -1119,30 +1009,28 @@ function RemedySetuPage() {
                         onClick={() => void verifyStockInDatabase()}
                       >
                         <RefreshCw className={checkingStockDb ? "animate-spin" : ""} />
-                        Verify Live DB
+                        Check DB
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => {
-                          const draftMsg = `Do you have ${instantStockCheck.requestedQuantity} ${instantStockCheck.unit} of ${instantStockCheck.productName} available in stock? Please share the rate.`;
-                          setMessage(draftMsg);
-                          toast.info("Loaded stock inquiry into the reply assistant.");
+                          setMessage(
+                            `Do you have ${instantStockCheck.requestedQuantity} ${instantStockCheck.unit} of ${instantStockCheck.productName} available in stock? Please share the rate.`,
+                          );
                         }}
                       >
-                        Draft Inquiry for {instantStockCheck.requestedQuantity}{" "}
-                        {instantStockCheck.unit}
-                        <ArrowUpRight />
+                        Use in Assistant
                       </Button>
                     </div>
                   </div>
                 )}
               </section>
 
-              <div className="sample-section">
-                <p className="sample-label">TRY A CUSTOMER MESSAGE (INCLUDING STOCK CHECKS)</p>
+              <div className="sample-section glass-panel">
+                <p className="sample-label">Sample Messages</p>
                 <div className="sample-list">
-                  {samples.map((sample, index) => (
+                  {samples.map((sample) => (
                     <Button
                       key={sample}
                       type="button"
@@ -1150,9 +1038,7 @@ function RemedySetuPage() {
                       className="sample-item"
                       onClick={() => setMessage(sample)}
                     >
-                      <span className="sample-index">0{index + 1}</span>
                       <span>{sample}</span>
-                      <ArrowUpRight />
                     </Button>
                   ))}
                 </div>
@@ -1161,55 +1047,29 @@ function RemedySetuPage() {
 
             <div className="output-column">
               {!analysisCard ? (
-                <div className="empty-reply">
-                  <div className="empty-art">
-                    <MessageCircle />
-                    <span>
-                      <Gem />
-                    </span>
-                  </div>
-                  <span className="empty-eyebrow">A CONVERSATION, CARED FOR</span>
-                  <h2>
-                    Your next reply
-                    <br />
-                    will find its words.
-                  </h2>
+                <div className="empty-reply glass-panel">
+                  <h2>No inquiry selected</h2>
                   <p>
-                    We check the database for exact stock availability, calculate wholesale tier
-                    pricing, surface AI sales insights, and save the lead for your team.
+                    Enter a customer message or pick a sample on the left to check database stock
+                    availability, calculate tier pricing, and generate a reply.
                   </p>
-                  <div className="empty-signature">
-                    <span />
-                    <span>REMEDY SETU</span>
-                    <span />
-                  </div>
                 </div>
               ) : (
-                <section className="reply-result">
+                <section className="reply-result glass-panel">
                   <div className="result-header">
-                    <div>
-                      <span className="result-eyebrow">02 · DB VERIFIED & READY TO SEND</span>
-                      <h2>A reply, ready for you.</h2>
-                    </div>
-                    <span className="saved-indicator">
-                      <CheckCheck /> SAVED TO LEADS
-                    </span>
+                    <h2>Generated Reply & Quote</h2>
+                    <span className="saved-indicator">Saved</span>
                   </div>
                   <div className="signal-row">
-                    <span className="signal-label">INTENT</span>
+                    <span className="signal-label">Intent</span>
                     <span className="signal-chip">
                       {intentLabels[analysisCard.analysis.intent]}
                     </span>
-                    <span className="signal-dot" />
-                    <span className="signal-label">LANGUAGE</span>
-                    <span className="language-chip">
-                      <Languages />
-                      {analysisCard.analysis.language}
-                    </span>
+                    <span className="signal-label">Language</span>
+                    <span className="language-chip">{analysisCard.analysis.language}</span>
                     {analysisCard.analysis.provider && (
                       <>
-                        <span className="signal-dot" />
-                        <span className="signal-label">AI</span>
+                        <span className="signal-label">Engine</span>
                         <span className="signal-chip">
                           {analysisCard.analysis.provider.toUpperCase()}
                         </span>
@@ -1217,7 +1077,6 @@ function RemedySetuPage() {
                     )}
                   </div>
 
-                  {/* Database Stock Quantity Verification Banner */}
                   {analysisCard.lead.matched_product && (
                     <div
                       className={`db-stock-verification-box status-${analysisCard.analysis.stockStatus.toLowerCase()}`}
@@ -1226,17 +1085,17 @@ function RemedySetuPage() {
                         <div>
                           <span className="db-stock-badge">
                             {analysisCard.analysis.stockStatus === "AVAILABLE"
-                              ? "DB STOCK AVAILABLE"
+                              ? "AVAILABLE IN DB"
                               : analysisCard.analysis.stockStatus === "INSUFFICIENT_STOCK"
                                 ? "INSUFFICIENT DB STOCK"
-                                : "OUT OF STOCK IN DB"}
+                                : "OUT OF STOCK"}
                           </span>
                           <strong>
                             {analysisCard.analysis.stockStatus === "AVAILABLE"
-                              ? `Yes — ${analysisCard.analysis.quantity} ${analysisCard.lead.matched_product.unit} is available (${analysisCard.analysis.availableStock} ${analysisCard.lead.matched_product.unit} in DB)`
+                              ? `Yes — ${analysisCard.analysis.quantity} ${analysisCard.lead.matched_product.unit} available (${analysisCard.analysis.availableStock} ${analysisCard.lead.matched_product.unit} in DB)`
                               : analysisCard.analysis.stockStatus === "INSUFFICIENT_STOCK"
                                 ? `No — Requested ${analysisCard.analysis.quantity} ${analysisCard.lead.matched_product.unit}, only ${analysisCard.analysis.availableStock ?? 0} ${analysisCard.lead.matched_product.unit} in DB (Short by ${analysisCard.analysis.stockShortfall} ${analysisCard.lead.matched_product.unit})`
-                                : `No — 0 ${analysisCard.lead.matched_product.unit} currently available in DB`}
+                                : `No — 0 ${analysisCard.lead.matched_product.unit} available in DB`}
                           </strong>
                         </div>
                         <span className="db-stock-remaining">
@@ -1267,21 +1126,14 @@ function RemedySetuPage() {
                   )}
 
                   <div className="quote-panel">
-                    <div className="quote-heading">
-                      <span>YOUR QUOTE</span>
-                      <span>INR · WHOLESALE PRICE</span>
-                    </div>
                     <div className="quote-product">
-                      <span className="quote-product-icon">
-                        <Gem />
-                      </span>
                       <div>
                         <strong>
                           {analysisCard.lead.matched_product?.name ?? "Product not matched"}
                         </strong>
                         <span>
                           {analysisCard.lead.matched_product?.hindi_name ??
-                            "Please verify product details"}
+                            "Confirm product details"}
                         </span>
                       </div>
                       {analysisCard.lead.matched_product && (
@@ -1296,8 +1148,8 @@ function RemedySetuPage() {
                             }
                           />
                           {analysisCard.lead.matched_product.in_stock
-                            ? `In stock (${analysisCard.analysis.availableStock ?? getAvailableStockQuantity(analysisCard.lead.matched_product)} ${analysisCard.lead.matched_product.unit})`
-                            : "Out of stock (0)"}
+                            ? `${analysisCard.analysis.availableStock ?? getAvailableStockQuantity(analysisCard.lead.matched_product)} ${analysisCard.lead.matched_product.unit} in stock`
+                            : "Out of stock"}
                         </span>
                       )}
                     </div>
@@ -1309,20 +1161,20 @@ function RemedySetuPage() {
                             value={`${formatRupees(analysisCard.analysis.unitRate ?? 0)} / ${analysisCard.lead.matched_product.unit}`}
                           />
                           <QuoteItem
-                            label="Requested / DB Stock"
+                            label="Requested / Available"
                             value={`${analysisCard.analysis.quantity} / ${analysisCard.analysis.availableStock ?? 0} ${analysisCard.lead.matched_product.unit}`}
                           />
                           <QuoteItem
-                            label="Applied tier"
+                            label="Tier"
                             value={quantityTier(analysisCard.analysis.quantity)}
                           />
                         </div>
                         <div className="quote-total">
                           <div>
-                            <span>ESTIMATED TOTAL</span>
+                            <span>TOTAL QUOTE</span>
                             {analysisCard.analysis.aiInsights.savingsVsRetail > 0 && (
                               <small className="tier-savings-pill">
-                                Customer saves{" "}
+                                Saves{" "}
                                 {formatRupees(analysisCard.analysis.aiInsights.savingsVsRetail)} vs
                                 retail
                               </small>
@@ -1333,58 +1185,44 @@ function RemedySetuPage() {
                       </>
                     ) : (
                       <p className="unmatched-note">
-                        No close catalogue match — confirm the item and price before quoting.
+                        No catalogue match found. Verify the product name and quantity.
                       </p>
                     )}
                   </div>
 
-                  {/* AI Sales Coach & Deal Insights Card */}
                   <div className="ai-coach-panel">
                     <div className="ai-coach-header">
-                      <span>
-                        <Sparkles className="inline size-3.5" /> AI SALES COACH & INSIGHTS
-                      </span>
+                      <span>AI Deal Insights</span>
                       <div className="ai-coach-badges">
                         <span
                           className={`urgency-pill urgency-${analysisCard.analysis.aiInsights.urgency.toLowerCase()}`}
                         >
-                          {analysisCard.analysis.aiInsights.urgency} URGENCY
+                          {analysisCard.analysis.aiInsights.urgency}
                         </span>
                         <span className="conversion-pill">
-                          {analysisCard.analysis.aiInsights.conversionProbability}% WIN SCORE
+                          {analysisCard.analysis.aiInsights.conversionProbability}% conversion
                         </span>
                       </div>
                     </div>
                     <p className="ai-coach-action">
-                      <strong>Next Best Action:</strong>{" "}
-                      {analysisCard.analysis.aiInsights.recommendedAction}
+                      <strong>Action:</strong> {analysisCard.analysis.aiInsights.recommendedAction}
                     </p>
                     {analysisCard.analysis.aiInsights.tierNudge && (
                       <div className="ai-tier-nudge">
-                        <Zap className="size-4 shrink-0" />
                         <span>
-                          <strong>Wholesale Tier Nudge:</strong>{" "}
-                          {analysisCard.analysis.aiInsights.tierNudge}
+                          <strong>Tier Nudge:</strong> {analysisCard.analysis.aiInsights.tierNudge}
                         </span>
                       </div>
                     )}
                     {analysisCard.analysis.aiInsights.upsellSuggestion && (
                       <p className="ai-upsell-note">
-                        <strong>Cross-Sell Idea:</strong>{" "}
-                        {analysisCard.analysis.aiInsights.upsellSuggestion}
+                        <strong>Add-on:</strong> {analysisCard.analysis.aiInsights.upsellSuggestion}
                       </p>
                     )}
-                    <div className="ai-signals-list">
-                      {analysisCard.analysis.aiInsights.buyingSignals.map((signal) => (
-                        <span key={signal} className="ai-signal-tag">
-                          {signal}
-                        </span>
-                      ))}
-                    </div>
                   </div>
 
                   <div className="reply-enhancer-bar">
-                    <span className="reply-enhancer-label">1-CLICK ENHANCE:</span>
+                    <span className="reply-enhancer-label">Add note:</span>
                     <button
                       type="button"
                       className="enhancer-chip"
@@ -1397,7 +1235,7 @@ function RemedySetuPage() {
                       className="enhancer-chip"
                       onClick={() => appendSmartEnhancer("tier")}
                     >
-                      + Tier Discount Note
+                      + Tier Discount
                     </button>
                     {analysisCard.analysis.stockStatus === "INSUFFICIENT_STOCK" && (
                       <button
@@ -1405,7 +1243,7 @@ function RemedySetuPage() {
                         className="enhancer-chip"
                         onClick={() => appendSmartEnhancer("partial")}
                       >
-                        + Partial Stock Dispatch
+                        + Partial Dispatch
                       </button>
                     )}
                     <button
@@ -1413,12 +1251,12 @@ function RemedySetuPage() {
                       className="enhancer-chip"
                       onClick={() => appendSmartEnhancer("payment")}
                     >
-                      + Pincode & UPI Prompt
+                      + UPI Details
                     </button>
                   </div>
 
                   <label className="reply-label" htmlFor="suggested-reply">
-                    YOUR WHATSAPP REPLY <span>EDIT BEFORE SENDING</span>
+                    WHATSAPP REPLY
                   </label>
                   <Textarea
                     id="suggested-reply"
@@ -1428,7 +1266,10 @@ function RemedySetuPage() {
                         current
                           ? {
                               ...current,
-                              analysis: { ...current.analysis, suggestedReply: event.target.value },
+                              analysis: {
+                                ...current.analysis,
+                                suggestedReply: event.target.value,
+                              },
                             }
                           : current,
                       )
@@ -1441,7 +1282,7 @@ function RemedySetuPage() {
                       type="tel"
                       value={customerPhone}
                       onChange={(event) => setCustomerPhone(event.target.value)}
-                      placeholder="Optional customer WhatsApp number (e.g. +91 98765 43210)"
+                      placeholder="Customer WhatsApp number (optional, e.g. +91 98765 43210)"
                       aria-label="Customer WhatsApp number"
                     />
                   </div>
@@ -1463,28 +1304,13 @@ function RemedySetuPage() {
                         >
                           <PackageCheck />
                           {fulfillingLeadId === analysisCard.lead.id
-                            ? "Deducting DB stock…"
-                            : "Fulfill & Deduct DB Stock"}
+                            ? "Deducting…"
+                            : "Fulfill & Deduct Stock"}
                         </Button>
                       )}
                     <Button className="whatsapp-button" onClick={() => void sendOnWhatsApp()}>
                       <MessageCircle />
                       Send on WhatsApp
-                      <ArrowUpRight />
-                    </Button>
-                  </div>
-                  <div className="saved-note">
-                    <Check />
-                    <span>Lead saved to the shared team workspace.</span>
-                    <Button
-                      variant="link"
-                      onClick={() => {
-                        setActiveTab("leads");
-                        void refreshWorkspace();
-                      }}
-                    >
-                      View lead
-                      <ArrowDownToLine />
                     </Button>
                   </div>
                 </section>
@@ -1494,15 +1320,12 @@ function RemedySetuPage() {
         )}
 
         {activeTab === "leads" && (
-          <section className="listing-section">
+          <section className="listing-section glass-panel">
             <div className="listing-heading">
-              <div>
-                <SectionHeading
-                  eyebrow="CUSTOMER CONVERSATIONS"
-                  title={`${workspace.leads.length} saved ${workspace.leads.length === 1 ? "lead" : "leads"}`}
-                  subtitle={`${openLeads} open ${openLeads === 1 ? "inquiry" : "inquiries"} awaiting reply across your sales workspace.`}
-                />
-              </div>
+              <SectionHeading
+                title={`Saved Leads (${workspace.leads.length})`}
+                subtitle={`${openLeads} open inquiries awaiting reply.`}
+              />
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={exportLeadsCsv}>
                   <Download />
@@ -1513,8 +1336,8 @@ function RemedySetuPage() {
                   onClick={() => void refreshWorkspace()}
                   disabled={loadingWorkspace}
                 >
-                  <ArrowDownToLine />
-                  Refresh list
+                  <RefreshCw className={loadingWorkspace ? "animate-spin" : ""} />
+                  Refresh
                 </Button>
               </div>
             </div>
@@ -1571,11 +1394,9 @@ function RemedySetuPage() {
                     <th>CUSTOMER MESSAGE</th>
                     <th>INTENT</th>
                     <th>PRODUCT & QUOTE</th>
-                    <th>DB STOCK CHECK</th>
+                    <th>DB STOCK</th>
                     <th>STATUS</th>
-                    <th>
-                      <span className="sr-only">Actions</span>
-                    </th>
+                    <th>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1589,13 +1410,6 @@ function RemedySetuPage() {
                         <td className="time-cell">{formatDate(lead.created_at)}</td>
                         <td className="message-cell">
                           <span>{lead.customer_message}</span>
-                          <button
-                            type="button"
-                            className="row-link"
-                            onClick={() => setSelectedLead(lead)}
-                          >
-                            VIEW REPLY
-                          </button>
                         </td>
                         <td>
                           <IntentBadge intent={lead.intent} />
@@ -1622,10 +1436,10 @@ function RemedySetuPage() {
                               }`}
                             >
                               {avail === 0
-                                ? `0 ${lead.matched_product.unit} (Out)`
+                                ? `0 ${lead.matched_product.unit}`
                                 : enough
-                                  ? `${avail} ${lead.matched_product.unit} in DB`
-                                  : `Only ${avail} of ${lead.extracted_quantity} ${lead.matched_product.unit}`}
+                                  ? `${avail} ${lead.matched_product.unit} available`
+                                  : `${avail} / ${lead.extracted_quantity} ${lead.matched_product.unit}`}
                             </span>
                           ) : (
                             <span className="text-xs text-muted-foreground">Unmatched</span>
@@ -1648,7 +1462,7 @@ function RemedySetuPage() {
                           </select>
                         </td>
                         <td>
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
                             {lead.matched_product &&
                               lead.status !== "CONVERTED" &&
                               (avail ?? 0) > 0 && (
@@ -1656,21 +1470,18 @@ function RemedySetuPage() {
                                   variant="outline"
                                   size="sm"
                                   disabled={fulfillingLeadId === lead.id}
-                                  title="Convert lead and deduct ordered quantity from DB stock"
                                   onClick={() => void handleFulfillLead(lead)}
                                 >
-                                  <PackageCheck className="size-3.5" />
                                   Fulfill
                                 </Button>
                               )}
                             <Button
                               variant="ghost"
-                              size="icon"
-                              title="View reply"
+                              size="sm"
                               aria-label={`View saved reply for ${lead.customer_message.slice(0, 36)}`}
                               onClick={() => setSelectedLead(lead)}
                             >
-                              <ArrowUpRight />
+                              Edit Reply
                             </Button>
                           </div>
                         </td>
@@ -1687,34 +1498,22 @@ function RemedySetuPage() {
         )}
 
         {activeTab === "catalog" && (
-          <section className="listing-section">
+          <section className="listing-section glass-panel">
             <div className="listing-heading">
               <SectionHeading
-                eyebrow="THE REMEDY SETU CATALOGUE & INVENTORY"
-                title={`${workspace.products.length} considered essentials · ${totalFixedStockUnits} units in fixed DB stock`}
-                subtitle="Set fixed stock quantities per product in the database. Every customer inquiry automatically checks these quantities."
+                title="Product Catalogue & Fixed DB Stock"
+                subtitle={`${workspace.products.length} products · ${totalFixedStockUnits} total units in stock.`}
               />
               <Button
                 variant="outline"
                 onClick={() => void refreshWorkspace()}
                 disabled={loadingWorkspace}
               >
-                <ArrowDownToLine />
-                Refresh list
+                <RefreshCw className={loadingWorkspace ? "animate-spin" : ""} />
+                Refresh
               </Button>
             </div>
             <div className="catalog-filter-row">
-              <div className="catalog-legend">
-                <span>
-                  <span className="legend-mark base-mark" /> PER UNIT
-                </span>
-                <span>
-                  <span className="legend-mark tier-mark" /> WHOLESALE TIER
-                </span>
-                <span>
-                  <PackageCheck /> FIXED DB STOCK QUANTITY
-                </span>
-              </div>
               <div
                 className="category-pills"
                 role="group"
@@ -1752,7 +1551,7 @@ function RemedySetuPage() {
                     <th>10–49 UNITS</th>
                     <th>50–99 UNITS</th>
                     <th>100+ UNITS</th>
-                    <th>FIXED DB STOCK QUANTITY</th>
+                    <th>FIXED DB STOCK</th>
                     <th>STATUS</th>
                   </tr>
                 </thead>
@@ -1766,7 +1565,7 @@ function RemedySetuPage() {
                         <td className="catalog-name">
                           <strong>{product.name}</strong>
                           <span>
-                            {product.hindi_name} · {product.description}
+                            {product.hindi_name} — {product.description}
                           </span>
                         </td>
                         <td>{categoryLabels[product.category]}</td>
@@ -1864,13 +1663,9 @@ function RemedySetuPage() {
 
         {activeTab === "insights" && (
           <div className="insights-stack">
-            {/* AI Executive Brief Banner */}
-            <section className="listing-section ai-executive-card">
+            <section className="listing-section glass-panel">
               <div className="listing-heading">
                 <div>
-                  <span className="section-eyebrow">
-                    <Sparkles className="inline size-3.5" /> AI EXECUTIVE INVENTORY & SALES BRIEF
-                  </span>
                   <h2>{computedInsights.headline}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">{computedInsights.summary}</p>
                 </div>
@@ -1880,7 +1675,7 @@ function RemedySetuPage() {
                   disabled={loadingInsights}
                 >
                   <RefreshCw className={loadingInsights ? "animate-spin" : ""} />
-                  {loadingInsights ? "Running AI analysis…" : "Refresh AI Insights"}
+                  {loadingInsights ? "Refreshing…" : "Refresh Insights"}
                 </Button>
               </div>
 
@@ -1890,7 +1685,7 @@ function RemedySetuPage() {
                     <div className="recommendation-top">
                       <span className="rec-category">{rec.category}</span>
                       <span className={`rec-impact impact-${rec.impact.toLowerCase()}`}>
-                        {rec.impact} IMPACT
+                        {rec.impact}
                       </span>
                     </div>
                     <h3>{rec.title}</h3>
@@ -1900,13 +1695,11 @@ function RemedySetuPage() {
               </div>
             </section>
 
-            {/* Demand vs Fixed DB Stock Health Table */}
-            <section className="listing-section">
+            <section className="listing-section glass-panel">
               <div className="listing-heading">
                 <SectionHeading
-                  eyebrow="DATABASE STOCK VS. OPEN LEAD DEMAND"
-                  title="Inventory sufficiency matrix"
-                  subtitle="Compares your fixed DB stock quantities against open customer inquiries to prevent stockouts."
+                  title="DB Stock vs. Open Lead Demand"
+                  subtitle="Compares fixed database inventory against active customer inquiries."
                 />
               </div>
               <div className="table-wrap">
@@ -1914,11 +1707,11 @@ function RemedySetuPage() {
                   <thead>
                     <tr>
                       <th>PRODUCT</th>
-                      <th>FIXED DB STOCK</th>
-                      <th>OPEN LEAD DEMAND</th>
+                      <th>DB STOCK</th>
+                      <th>OPEN DEMAND</th>
                       <th>STATUS</th>
-                      <th>AI INVENTORY RECOMMENDATION</th>
-                      <th>QUICK RESTOCK</th>
+                      <th>RECOMMENDATION</th>
+                      <th>RESTOCK</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1962,7 +1755,6 @@ function RemedySetuPage() {
                                   void saveFixedStockQuantity(productObj, alert.availableStock + 50)
                                 }
                               >
-                                <Plus className="size-3.5" />
                                 +50 {alert.unit}
                               </Button>
                             )}
@@ -1975,22 +1767,18 @@ function RemedySetuPage() {
               </div>
             </section>
 
-            {/* Complete Platform Features Directory */}
-            <section className="listing-section">
+            <section className="listing-section glass-panel">
               <div className="listing-heading">
                 <SectionHeading
-                  eyebrow="CAPABILITIES & ENHANCEMENTS DIRECTORY"
-                  title={`${PLATFORM_FEATURES.length} integrated sales & inventory features`}
-                  subtitle="A complete breakdown of the fixed DB stock verification, AI insights, and workflow capabilities built into Remedy Setu."
+                  title="Workspace Features"
+                  subtitle="Capabilities enabled in this sales and inventory desk."
                 />
               </div>
               <div className="features-grid">
-                {PLATFORM_FEATURES.map((feature, index) => (
+                {PLATFORM_FEATURES.map((feature) => (
                   <article key={feature.id} className="feature-card">
                     <div className="feature-card-top">
-                      <span className="feature-index">0{index + 1}</span>
                       <span className="feature-category-tag">
-                        <Layers className="inline size-3" />{" "}
                         {featureCategoryLabels[feature.category]}
                       </span>
                       <span className="feature-badge">{feature.badge}</span>
@@ -1999,10 +1787,7 @@ function RemedySetuPage() {
                     <p>{feature.description}</p>
                     <ul className="feature-highlights">
                       {feature.highlights.map((item) => (
-                        <li key={item}>
-                          <Check className="size-3.5 shrink-0" />
-                          <span>{item}</span>
-                        </li>
+                        <li key={item}>{item}</li>
                       ))}
                     </ul>
                   </article>
@@ -2021,23 +1806,20 @@ function RemedySetuPage() {
           }}
         >
           <section
-            className="lead-dialog"
+            className="lead-dialog glass-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="lead-dialog-title"
           >
             <div className="dialog-heading">
-              <div>
-                <span className="result-eyebrow">CUSTOMER REPLY</span>
-                <h2 id="lead-dialog-title">A saved conversation.</h2>
-              </div>
+              <h2 id="lead-dialog-title">Saved Lead Details</h2>
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 aria-label="Close lead details"
                 onClick={() => setSelectedLead(null)}
               >
-                ×
+                Close
               </Button>
             </div>
             <div className="dialog-message">
@@ -2045,7 +1827,7 @@ function RemedySetuPage() {
               <p>{selectedLead.customer_message}</p>
             </div>
             <div className="dialog-reply">
-              <span>YOUR REPLY</span>
+              <span>REPLY</span>
               <Textarea
                 value={selectedLead.suggested_reply}
                 onChange={(event) =>
@@ -2074,7 +1856,9 @@ function RemedySetuPage() {
                 disabled={savingReply}
                 onClick={() => {
                   setSavingReply(true);
-                  void updateLead(selectedLead.id, { suggestedReply: selectedLead.suggested_reply })
+                  void updateLead(selectedLead.id, {
+                    suggestedReply: selectedLead.suggested_reply,
+                  })
                     .then((updated) => {
                       if (updated) toast.success("Reply saved.");
                     })
@@ -2082,32 +1866,42 @@ function RemedySetuPage() {
                 }}
               >
                 {savingReply ? "Saving…" : "Save reply"}
-                <Check />
               </Button>
             </div>
           </section>
         </div>
       )}
 
-      <footer className="workspace-footer">
-        <span>
-          REMEDY SETU <span className="footer-separator">/</span> THOUGHTFULLY SOURCED,
-          CONSIDERATELY SHARED
+      <footer className="workspace-footer glass-topbar">
+        <span>Remedy Setu</span>
+        <div className="footer-meta">
           {workspace.connectors && (
             <>
-              {" "}
-              <span className="footer-separator">·</span> AI:{" "}
-              {workspace.connectors.ai.provider.toUpperCase()} ({workspace.connectors.ai.model}){" "}
-              <span className="footer-separator">·</span> DB:{" "}
-              {workspace.connectors.database.provider === "supabase-postgres"
-                ? "SUPABASE RLS"
-                : "LOCAL MEMORY"}
+              <span>AI: {workspace.connectors.ai.provider.toUpperCase()}</span>
+              <span>
+                DB:{" "}
+                {workspace.connectors.database.provider === "supabase-postgres"
+                  ? "Supabase"
+                  : "Memory"}
+              </span>
             </>
           )}
-        </span>
-        <span>{session.user.email}</span>
+          <span>{session.user.email}</span>
+        </div>
       </footer>
     </main>
+  );
+}
+
+function RemedySetuLogo() {
+  return (
+    <img
+      src="/remedy-setu-logo.svg"
+      alt="Remedy Setu"
+      className="brand-logo"
+      width={185}
+      height={44}
+    />
   );
 }
 
@@ -2132,27 +1926,9 @@ function NavButton({
   );
 }
 
-function BrandMark() {
-  return (
-    <span className="brand-mark">
-      <Gem strokeWidth={1.8} />
-      <span className="brand-mark-dot" />
-    </span>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  subtitle,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-}) {
+function SectionHeading({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="section-heading">
-      <span className="section-eyebrow">{eyebrow}</span>
       <h2>{title}</h2>
       <p>{subtitle}</p>
     </div>
@@ -2177,19 +1953,13 @@ function IntentBadge({ intent }: { intent: Lead["intent"] }) {
 function EmptyListing({ loading, kind }: { loading: boolean; kind: "leads" | "products" }) {
   return (
     <div className="empty-listing">
-      {loading ? (
-        <LoaderCircle className="animate-spin" />
-      ) : kind === "leads" ? (
-        <MessageCircle />
-      ) : (
-        <Gem />
-      )}
+      {loading && <LoaderCircle className="animate-spin" />}
       <span>
         {loading
-          ? "Loading the shared workspace…"
+          ? "Loading workspace…"
           : kind === "leads"
-            ? "No customer inquiries match this search."
-            : "The product price list isn't available right now."}
+            ? "No matching leads found."
+            : "No products found."}
       </span>
     </div>
   );
