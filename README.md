@@ -74,15 +74,23 @@ npm run build   # Build production client + SSR serverless bundles
 
 ### Core Application Features
 
-1. **Multilingual WhatsApp Message Analyzer**:
-   - Accepts customer inquiries in **English**, **Hindi (देवनागरी)**, and **Hinglish**.
-   - Automatically detects language and classifies intent into one of 5 categories:
-     - `PRICE_ENQUIRY`
-     - `BULK_ORDER`
-     - `AVAILABILITY`
-     - `COMPLAINT`
-     - `GENERAL_QUERY`
-2. **Deterministic Wholesale Price & Tier Calculator (Zero Price Hallucination)**:
+1. **Fixed Database Stock Inventory & Real-Time Quantity Verification**:
+   - Every product in `remedy_products` maintains a fixed `stock_quantity` in the database (`Neelam: 45 ratti`, `Pukhraj: 35 ratti`, `Panna: 60 ratti`, `Moonga: 80 ratti`, `5 Mukhi Rudraksha: 250 pcs`, `7 Mukhi Rudraksha: 40 pcs`, `Sphatik Mala: 75 mala`, `Navgraha Puja Kit: 30 kit`).
+   - Whenever a customer asks for a quantity, the assistant checks the database (`stock_quantity` & `in_stock`) and reports whether that exact quantity is available (`AVAILABLE`), partially available with exact shortfall (`INSUFFICIENT_STOCK`), or out of stock (`OUT_OF_STOCK`).
+   - Drafts transparent replies in English, Hindi, or Hinglish quoting both the immediately available stock and the full requested order when a shortfall occurs.
+2. **Interactive Inventory Manager & 1-Click Order Fulfillment Deduction**:
+   - Edit fixed stock quantities inline in the **Price List & Stock** tab (`-5`, `+5`, or set exact quantity) persisted via `updateProductStock` server function.
+   - **1-Click Fulfill & Deduct DB Stock**: Converting a lead via `fulfillLeadOrder` automatically deducts the customer's ordered quantity from `stock_quantity` in the database and flips `in_stock` to `false` when inventory reaches `0`.
+3. **Live DB Stock & Wholesale Tier Simulator**:
+   - Interactive checker in the **Reply Assistant** tab lets agents select any SKU and enter a quantity to immediately verify DB stock, remaining units after order, applied wholesale tier rate, and customer savings vs. retail.
+4. **AI Sales Coach & Per-Inquiry Buying Insights**:
+   - Computes **Conversion Win Score (%)**, **Urgency (`HIGH`/`MEDIUM`/`LOW`)**, **Customer Sentiment**, **Buying Signals**, **Next Best Action**, **Astrological Cross-Sell Suggestion**, and **Smart Wholesale Tier Nudges** (e.g., alerting when an 8-ratti order is just 2 ratti away from unlocking the 10+ wholesale rate).
+5. **AI Executive Insights & Demand-vs-Stock Forecasting (`AI Insights & Features` Tab)**:
+   - Aggregates open lead demand against fixed DB stock to flag `DEMAND_EXCEEDS_STOCK`, `LOW`, and `CRITICAL` inventory alerts with 1-click `+50` restock actions, strategic AI recommendations, and an interactive **Platform Features Directory**.
+6. **Multilingual WhatsApp Message Analyzer & Smart Reply Enhancers**:
+   - Accepts customer inquiries in **English**, **Hindi (देवनागरी)**, and **Hinglish** and classifies intent (`PRICE_ENQUIRY`, `BULK_ORDER`, `AVAILABILITY`, `COMPLAINT`, `GENERAL_QUERY`).
+   - Includes **1-Click Smart Reply Enhancers** (`+ Lab Certificate`, `+ Tier Discount Note`, `+ Partial Stock Dispatch`, `+ Pincode & UPI Prompt`) and **CSV Lead Export**.
+7. **Deterministic Wholesale Price & Tier Calculator (Zero Price Hallucination)**:
    - Matches inquiries against the **Remedy Setu Wholesale Catalogue** (Gemstones in `ratti`, Rudraksha in `pcs`, Spiritual Malas in `mala`, Puja Kits in `kit`).
    - Extracts requested quantities across English and Hindi units (`ratti`, `pcs`, `mala`, `kit`, `रत्ती`, `नग`, `पीस`, `माला`, `किट`) without confusing bead face counts (`5 Mukhi`, `7 Mukhi`) with order quantity.
    - Deterministically calculates unit rate and total quote in INR across 4 wholesale tiers:
@@ -90,31 +98,30 @@ npm run build   # Build production client + SSR serverless bundles
      - **Tier 1 Wholesale**: `10–49 units` (`tier10_plus_price`)
      - **Tier 2 Wholesale**: `50–99 units` (`tier50_plus_price`)
      - **Tier 3 Bulk**: `100+ units` (`tier100_plus_price`)
-3. **Contextual Multilingual Reply Generator**:
-   - Generates a ready-to-send reply in the customer's exact language (`English`, `Hindi`, or `Hinglish`) including product availability, applied unit rate, quantity, and formatted INR total.
-   - Handles special cases automatically: **order delay/complaint apologies**, **unmatched product clarification prompts**, and **out-of-stock notifications**.
-4. **1-Click Copy & WhatsApp Dispatch**:
-   - Editable reply box before sending.
-   - **Copy Reply** to clipboard and **Send on WhatsApp** (supports optional customer phone number formatting via `wa.me/<phone>?text=...` or direct Meta WhatsApp Cloud API dispatch, while marking the lead as `REPLIED`).
-5. **Wholesale Product Catalogue View**:
-   - Displays all 8 seeded spiritual & gemstone items with Hindi names, descriptions, unit types, all 4 wholesale price tiers in INR, and live stock availability.
+8. **1-Click Copy & WhatsApp Dispatch**:
+   - Editable reply box before sending, **Copy Reply**, and **Send on WhatsApp** (`wa.me` deep link or Meta WhatsApp Cloud API).
 
 ### Backend Connectors & API Architecture
 
 - **TanStack Start Server Functions** ([`src/lib/remedy.functions.ts`](./src/lib/remedy.functions.ts)):
-  - `getWorkspaceData`: Loads catalogue products, owner-scoped leads, and live connector status.
-  - `analyzeCustomerMessage`: Runs AI/deterministic classification, computes tier quote, and saves the lead.
-  - `updateSavedLead`: Updates lead status (`NEW` | `REPLIED` | `CONVERTED`) and/or edited reply text.
-  - `deleteSavedLead`: Deletes an owner-scoped lead.
-  - `toggleProductStock`: Toggles `in_stock` status for any catalogue item.
+  - `getWorkspaceData`: Loads catalogue products (with fixed `stock_quantity`), owner-scoped leads, and live connector status.
+  - `analyzeCustomerMessage`: Verifies DB stock availability, runs AI/deterministic classification + AI Sales Coach insights, computes tier quote, and saves the lead.
+  - `checkProductStockAvailability`: Verifies exact requested quantity against fixed DB stock and returns shortfall, remaining stock, and wholesale savings.
+  - `updateProductStock` & `toggleProductStock`: Updates fixed `stock_quantity` and `in_stock` status in the database.
+  - `fulfillLeadOrder`: Marks an owner-scoped lead as `CONVERTED` and deducts `extracted_quantity` from the product's database `stock_quantity`.
+  - `generateWorkspaceInsights`: Generates AI executive insights, pipeline metrics, and demand-vs-stock alerts.
+  - `updateSavedLead` & `deleteSavedLead`: Updates or deletes owner-scoped leads.
   - `dispatchWhatsAppReply`: Updates lead status to `REPLIED` and dispatches via Meta WhatsApp Cloud API or `wa.me` deep link.
 - **REST API Endpoints** ([`src/lib/api-router.server.ts`](./src/lib/api-router.server.ts)):
   - `GET /api/health` & `GET /api/connectors` — Live health check and active connector configuration (`database`, `ai`, `whatsapp`).
-  - `GET /api/products` — List catalogue products (supports `?category=` and `?in_stock=` filters).
-  - `PATCH /api/products/:id` — Toggle product `inStock` status (`{ "inStock": boolean }`).
-  - `POST /api/analyze` — Analyze a customer WhatsApp message (`{ "message": "..." }`) and persist an owner-scoped lead.
+  - `GET /api/products` — List catalogue products with fixed `stock_quantity` (supports `?category=` and `?in_stock=` filters).
+  - `PATCH /api/products/:id` — Update product `stockQuantity` and/or `inStock` status (`{ "stockQuantity": number, "inStock": boolean }`).
+  - `POST /api/stock-check` — Verify if a requested quantity is available in DB stock (`{ "productId": "...", "quantity": 60 }`).
+  - `POST /api/analyze` — Analyze a customer WhatsApp message (`{ "message": "..." }`), verify DB stock, and persist an owner-scoped lead.
+  - `GET /api/insights` — Generate AI workspace insights, pipeline analytics, and demand-vs-stock alerts.
   - `GET /api/leads` — List owner-scoped leads (supports `?intent=`, `?status=`, and `?search=` filters).
   - `PATCH /api/leads/:id` — Update lead `status` or `suggestedReply`.
+  - `POST /api/leads/:id/fulfill` — Convert lead and deduct ordered quantity from DB stock.
   - `DELETE /api/leads/:id` — Delete an owner-scoped lead.
   - `GET /api/whatsapp/webhook` & `POST /api/whatsapp/webhook` — Meta WhatsApp Cloud API webhook verification and inbound message processor.
   - `POST /api/cron/digest` — Authenticated cron endpoint (protected by `CRON_SECRET` via timing-safe SHA-256 verification).

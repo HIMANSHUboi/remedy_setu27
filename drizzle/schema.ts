@@ -39,6 +39,7 @@ export const remedyProducts = pgTable("remedy_products", {
   tier10PlusPrice: numeric("tier10_plus_price", { precision: 12, scale: 2 }),
   tier50PlusPrice: numeric("tier50_plus_price", { precision: 12, scale: 2 }),
   tier100PlusPrice: numeric("tier100_plus_price", { precision: 12, scale: 2 }),
+  stockQuantity: integer("stock_quantity").notNull().default(50),
   inStock: boolean("in_stock").notNull().default(true),
   description: text("description").notNull(),
 });

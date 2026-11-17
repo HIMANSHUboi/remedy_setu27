@@ -67,6 +67,7 @@ export type Database = {
           id: string;
           in_stock: boolean;
           name: string;
+          stock_quantity: number;
           tier10_plus_price: number | null;
           tier100_plus_price: number | null;
           tier50_plus_price: number | null;
@@ -80,6 +81,7 @@ export type Database = {
           id?: string;
           in_stock?: boolean;
           name: string;
+          stock_quantity?: number;
           tier10_plus_price?: number | null;
           tier100_plus_price?: number | null;
           tier50_plus_price?: number | null;
@@ -93,6 +95,7 @@ export type Database = {
           id?: string;
           in_stock?: boolean;
           name?: string;
+          stock_quantity?: number;
           tier10_plus_price?: number | null;
           tier100_plus_price?: number | null;
           tier50_plus_price?: number | null;

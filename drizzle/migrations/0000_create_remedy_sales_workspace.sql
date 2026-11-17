@@ -12,9 +12,13 @@ CREATE TABLE public.remedy_products (
   tier10_plus_price NUMERIC(12,2),
   tier50_plus_price NUMERIC(12,2),
   tier100_plus_price NUMERIC(12,2),
+  stock_quantity INTEGER NOT NULL DEFAULT 50 CHECK (stock_quantity >= 0),
   in_stock BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL
 );
+
+ALTER TABLE public.remedy_products
+  ADD COLUMN IF NOT EXISTS stock_quantity INTEGER NOT NULL DEFAULT 50 CHECK (stock_quantity >= 0);
 
 GRANT SELECT, INSERT, UPDATE ON public.remedy_products TO authenticated;
 GRANT ALL ON public.remedy_products TO service_role;
@@ -47,14 +51,14 @@ CREATE POLICY "Signed-in agents delete own leads" ON public.remedy_leads FOR DEL
 CREATE INDEX remedy_leads_created_at_idx ON public.remedy_leads (created_at DESC);
 CREATE INDEX remedy_leads_intent_idx ON public.remedy_leads (intent);
 
-INSERT INTO public.remedy_products (id, name, hindi_name, category, unit, base_price, tier10_plus_price, tier50_plus_price, tier100_plus_price, in_stock, description)
+INSERT INTO public.remedy_products (id, name, hindi_name, category, unit, base_price, tier10_plus_price, tier50_plus_price, tier100_plus_price, stock_quantity, in_stock, description)
 VALUES
-  ('11111111-1111-4111-8111-111111111101', 'Neelam / Blue Sapphire', 'नीलम', 'GEMSTONE', 'ratti', 2800, 2500, 2200, 1950, true, 'Ceylon origin lab-certified natural blue sapphire.'),
-  ('11111111-1111-4111-8111-111111111102', 'Pukhraj / Yellow Sapphire', 'पुखराज', 'GEMSTONE', 'ratti', 3200, 2900, 2600, 2300, true, 'Natural unheated Ceylon yellow sapphire with lab certificate.'),
-  ('11111111-1111-4111-8111-111111111103', 'Panna / Emerald', 'पन्ना', 'GEMSTONE', 'ratti', 2400, 2150, 1900, 1650, true, 'Zambian deep-green emerald for astrological wear.'),
-  ('11111111-1111-4111-8111-111111111104', 'Moonga / Red Coral', 'मूंगा', 'GEMSTONE', 'ratti', 950, 820, 720, 640, true, 'Italian capsule-cut natural red coral gemstone.'),
-  ('11111111-1111-4111-8111-111111111105', 'Rudraksha / 5 Mukhi Rudraksha', 'पंचमुखी रुद्राक्ष', 'RUDRAKSHA', 'pcs', 180, 140, 110, 85, true, 'Authentic Nepal-origin panchmukhi rudraksha beads.'),
-  ('11111111-1111-4111-8111-111111111106', '7 Mukhi Rudraksha', 'सप्तमुखी रुद्राक्ष', 'RUDRAKSHA', 'pcs', 650, 540, 460, 390, true, 'Certified Nepal 7 mukhi bead for Mahalakshmi kripa.'),
-  ('11111111-1111-4111-8111-111111111107', 'Sphatik Mala / Crystal Rosary', 'स्फटिक माला', 'SPIRITUAL_PRODUCT', 'mala', 450, 380, 320, 270, true, 'Natural rock crystal japa mala with 108 diamond-cut beads.'),
-  ('11111111-1111-4111-8111-111111111108', 'Navgraha Shanti Puja Kit', 'नवग्रह शांति पूजा किट', 'PUJA_SERVICE', 'kit', 1250, 1050, 920, 800, true, 'Complete samagri kit with energized yantra and vidhi booklet.')
-ON CONFLICT (id) DO NOTHING;
+  ('11111111-1111-4111-8111-111111111101', 'Neelam / Blue Sapphire', 'नीलम', 'GEMSTONE', 'ratti', 2800, 2500, 2200, 1950, 45, true, 'Ceylon origin lab-certified natural blue sapphire.'),
+  ('11111111-1111-4111-8111-111111111102', 'Pukhraj / Yellow Sapphire', 'पुखराज', 'GEMSTONE', 'ratti', 3200, 2900, 2600, 2300, 35, true, 'Natural unheated Ceylon yellow sapphire with lab certificate.'),
+  ('11111111-1111-4111-8111-111111111103', 'Panna / Emerald', 'पन्ना', 'GEMSTONE', 'ratti', 2400, 2150, 1900, 1650, 60, true, 'Zambian deep-green emerald for astrological wear.'),
+  ('11111111-1111-4111-8111-111111111104', 'Moonga / Red Coral', 'मूंगा', 'GEMSTONE', 'ratti', 950, 820, 720, 640, 80, true, 'Italian capsule-cut natural red coral gemstone.'),
+  ('11111111-1111-4111-8111-111111111105', 'Rudraksha / 5 Mukhi Rudraksha', 'पंचमुखी रुद्राक्ष', 'RUDRAKSHA', 'pcs', 180, 140, 110, 85, 250, true, 'Authentic Nepal-origin panchmukhi rudraksha beads.'),
+  ('11111111-1111-4111-8111-111111111106', '7 Mukhi Rudraksha', 'सप्तमुखी रुद्राक्ष', 'RUDRAKSHA', 'pcs', 650, 540, 460, 390, 40, true, 'Certified Nepal 7 mukhi bead for Mahalakshmi kripa.'),
+  ('11111111-1111-4111-8111-111111111107', 'Sphatik Mala / Crystal Rosary', 'स्फटिक माला', 'SPIRITUAL_PRODUCT', 'mala', 450, 380, 320, 270, 75, true, 'Natural rock crystal japa mala with 108 diamond-cut beads.'),
+  ('11111111-1111-4111-8111-111111111108', 'Navgraha Shanti Puja Kit', 'नवग्रह शांति पूजा किट', 'PUJA_SERVICE', 'kit', 1250, 1050, 920, 800, 30, true, 'Complete samagri kit with energized yantra and vidhi booklet.')
+ON CONFLICT (id) DO UPDATE SET stock_quantity = EXCLUDED.stock_quantity;

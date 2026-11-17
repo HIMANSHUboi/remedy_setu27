@@ -5,9 +5,12 @@ import {
   getActiveConnectorsSummary,
   getFallbackCatalog,
   runAnalyzeCustomerMessage,
+  runCheckProductStockAvailability,
   runDeleteSavedLead,
+  runFulfillLeadOrder,
+  runGenerateWorkspaceInsights,
   runGetWorkspaceData,
-  runToggleProductStock,
+  runUpdateProductStock,
   runUpdateSavedLead,
 } from "@/lib/remedy.functions";
 
@@ -45,9 +48,12 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         "GET /api/connectors",
         "GET /api/products",
         "PATCH /api/products/:id",
+        "POST /api/stock-check",
         "POST /api/analyze",
+        "GET /api/insights",
         "GET /api/leads",
         "PATCH /api/leads/:id",
+        "POST /api/leads/:id/fulfill",
         "DELETE /api/leads/:id",
         "GET /api/whatsapp/webhook",
         "POST /api/whatsapp/webhook",
@@ -118,7 +124,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     });
   }
 
-  // 4. Authenticated Workspace Endpoints (/api/products, /api/analyze, /api/leads)
+  // 4. Authenticated Workspace Endpoints (/api/products, /api/stock-check, /api/analyze, /api/insights, /api/leads)
   let authContext: Awaited<ReturnType<typeof authenticateBearerRequest>>;
   try {
     authContext = await authenticateBearerRequest(request);
@@ -143,12 +149,51 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   if (pathname.startsWith("/api/products/") && method === "PATCH") {
     const productId = pathname.slice("/api/products/".length);
     try {
-      const body = z.object({ inStock: z.boolean() }).parse(await request.json());
-      const product = await runToggleProductStock(authContext.supabase, productId, body.inStock);
+      const body = z
+        .object({
+          inStock: z.boolean().optional(),
+          stockQuantity: z.number().int().min(0).max(100000).optional(),
+        })
+        .refine((val) => val.inStock !== undefined || val.stockQuantity !== undefined)
+        .parse(await request.json());
+      const product = await runUpdateProductStock(authContext.supabase, productId, {
+        ...(body.inStock !== undefined ? { inStock: body.inStock } : {}),
+        ...(body.stockQuantity !== undefined ? { stockQuantity: body.stockQuantity } : {}),
+      });
       return jsonResponse({ product });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid request";
       return jsonResponse({ error: message }, 400);
+    }
+  }
+
+  if (pathname === "/api/stock-check" && method === "POST") {
+    try {
+      const body = z
+        .object({
+          productId: z.string().uuid(),
+          quantity: z.number().int().min(1).max(100000),
+        })
+        .parse(await request.json());
+      const check = await runCheckProductStockAvailability(
+        authContext.supabase,
+        body.productId,
+        body.quantity,
+      );
+      return jsonResponse({ stockCheck: check });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid stock check request";
+      return jsonResponse({ error: message }, 400);
+    }
+  }
+
+  if (pathname === "/api/insights" && method === "GET") {
+    try {
+      const insights = await runGenerateWorkspaceInsights(authContext.supabase, authContext.userId);
+      return jsonResponse({ insights });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to generate insights";
+      return jsonResponse({ error: message }, 500);
     }
   }
 
@@ -192,8 +237,27 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   }
 
   if (pathname.startsWith("/api/leads/")) {
-    const leadId = pathname.slice("/api/leads/".length);
-    const idCheck = z.string().uuid().safeParse(leadId);
+    const subPath = pathname.slice("/api/leads/".length);
+    if (subPath.endsWith("/fulfill") && method === "POST") {
+      const leadId = subPath.slice(0, -"/fulfill".length);
+      const idCheck = z.string().uuid().safeParse(leadId);
+      if (!idCheck.success) {
+        return jsonResponse({ error: "Invalid lead ID" }, 400);
+      }
+      try {
+        const fulfilled = await runFulfillLeadOrder(
+          authContext.supabase,
+          authContext.userId,
+          idCheck.data,
+        );
+        return jsonResponse(fulfilled);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to fulfill lead order";
+        return jsonResponse({ error: message }, 400);
+      }
+    }
+
+    const idCheck = z.string().uuid().safeParse(subPath);
     if (!idCheck.success) {
       return jsonResponse({ error: "Invalid lead ID" }, 400);
     }
