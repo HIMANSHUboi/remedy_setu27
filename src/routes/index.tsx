@@ -616,6 +616,15 @@ function RemedySetuPage() {
                       <Languages />
                       {analysisCard.analysis.language}
                     </span>
+                    {analysisCard.analysis.provider && (
+                      <>
+                        <span className="signal-dot" />
+                        <span className="signal-label">AI</span>
+                        <span className="signal-chip">
+                          {analysisCard.analysis.provider.toUpperCase()}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div className="quote-panel">
                     <div className="quote-heading">
