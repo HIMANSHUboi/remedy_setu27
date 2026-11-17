@@ -215,17 +215,27 @@ function RemedySetuPage() {
           password,
           options: { emailRedirectTo: window.location.origin },
         });
-        if (error) {
+        if (error && !/already registered/i.test(error.message)) {
           toast.error(error.message);
           return;
         }
-        if (data.session) {
+        if (data?.session) {
           setSession(data.session);
           toast.success("Account created — welcome to Remedy Setu.");
           return;
         }
-        toast.success("Account created! Please check your email to confirm your sign-up.");
-        setIsCreatingAccount(false);
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) {
+          toast.error(signInError.message);
+          return;
+        }
+        if (signInData.session) {
+          setSession(signInData.session);
+          toast.success("Account ready — welcome to Remedy Setu.");
+        }
         return;
       }
 
